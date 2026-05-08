@@ -1,0 +1,74 @@
+// Adapter-specific styles for multi-adapter display
+
+// Adapter section header styling
+.adapter-section {
+  .adapter-header {
+    background-color: #f5f5f5;
+    border-top: 2px solid #e0e0e0;
+    padding: 12px 16px;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  // First adapter section doesn't need top border
+  &:first-of-type .adapter-header {
+    border-top: none;
+  }
+}
+
+// Collection context indicator
+.collection-context {
+  background-color: #e8f4f8;
+  border-left: 4px solid #2185d0;
+  padding: 10px 16px;
+
+  th {
+    font-weight: normal;
+    font-style: italic;
+    color: #555;
+
+    em {
+      font-style: normal;
+      font-weight: 600;
+      color: #2185d0;
+    }
+  }
+}
+
+// Adapter field rows
+tr.adapter-field {
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: #fafafa;
+  }
+}
+
+// Multi-adapter view styling
+.multi-adapter-view {
+  .adapter-section + .adapter-section {
+    margin-top: 20px;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .adapter-section .adapter-header {
+    padding: 10px 12px;
+
+    h3 {
+      font-size: 1em;
+    }
+  }
+
+  .collection-context {
+    padding: 8px 12px;
+  }
+}

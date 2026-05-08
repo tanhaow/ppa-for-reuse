@@ -1,10 +1,6 @@
-import Parallax from 'parallax-js'
+import { Application } from '@hotwired/stimulus'
+import HomeController from './controllers/home_controller'
 
-// enable parallax effect on homepage
-$(() => {
-    // if user prefers reduced motion, don't enable
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (! mediaQuery.matches) {
-        new Parallax(document.getElementById('scene'))
-    }
-})
+// Bootstrap Stimulus for the home page bundle
+const application = Application.start()
+application.register('home', HomeController)
