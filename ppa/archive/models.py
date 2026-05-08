@@ -537,6 +537,8 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
         default="",
         help_text="Internal curation notes (not displayed on public site)",
     )
+    #: generic JSON metadata for adapter-specific fields
+    metadata = models.JSONField(default=dict, blank=True)
     #: :class:`ProtectedWorkField` instance to indicate metadata fields
     #: that should be preserved from bulk updates because they have been
     #: modified in Django admin.
