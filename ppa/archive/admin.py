@@ -7,7 +7,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from import_export import fields, resources
 from import_export.admin import ExportActionMixin, ExportMixin
-from parasolr.django import SolrClient
+from ppa.solr_factory import SolrClient
 
 from ppa.archive.models import (
     Cluster,
@@ -117,13 +117,14 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
         "record_id",
         "collections",
         "cluster",
+        "metadata_display",
         "protected_fields",
         "status",
         "added",
         "updated",
     )
     # fields that are always read only
-    readonly_fields = ("added", "updated", "protected_fields")
+    readonly_fields = ("added", "updated", "protected_fields", "metadata_display")
     # fields that are read only for HathiTrust records
     hathi_readonly_fields = (
         "source",
@@ -189,12 +190,27 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
             if obj.source == DigitizedWork.GALE:
                 # gale page url method requires source url
                 source_url = gale_page_url(obj.source_url, obj.first_page_digital)
-        return mark_safe(
-            '<a href="%s" target="_blank">%s</a>' % (source_url, obj.source_id)
-        )
+        return mark_safe('<a href="%s" target="_blank">%s</a>' % (source_url, obj.source_id))
 
     source_link.short_description = "Source id"
     source_link.admin_order_field = "source_id"
+
+    def metadata_display(self, obj):
+        """Display metadata JSON in a readable format"""
+        if not obj.metadata:
+            return "No metadata"
+
+        import json
+        from django.utils.html import escape
+
+        # Format JSON with indentation for readability
+        formatted_json = json.dumps(obj.metadata, indent=2, ensure_ascii=False)
+
+        # Wrap in <pre> tag for proper formatting and escape HTML
+        style = "background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;"
+        return mark_safe(f'<pre style="{style}">{escape(formatted_json)}</pre>')
+
+    metadata_display.short_description = "Metadata (JSON)"
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         # customize behavior when copying a record and saving as new
@@ -212,9 +228,7 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
                 post_params["source_url"] = instance.source_url
                 post_params["record_id"] = instance.record_id
                 # copy protected wield flags in simple string format
-                post_params[
-                    "protected_fields"
-                ] = instance.protected_fields.to_simple_str()
+                post_params["protected_fields"] = instance.protected_fields.to_simple_str()
 
                 # clear out fields that should be changed when excerpting
                 clear_fields = [
@@ -268,8 +282,9 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
         """Ensure reindex is called when admin form is saved"""
         # m2m relations are handled separately by the admin form so the standard
         # save override will not help as the m2m relationship are not yet set when
-        # model's save method is called. See the doc string for save_related
-        # at https://docs.djangoproject.com/en/1.11/_modules/django/contrib/admin/options/#ModelAdmin.save_related
+        # model's save method is called. See the doc string for save_related at:
+        # https://docs.djangoproject.com/en/1.11/_modules/django/contrib/admin/
+        # options/#ModelAdmin.save_related
 
         super(DigitizedWorkAdmin, self).save_related(request, form, formsets, change)
         digwork = DigitizedWork.objects.get(id=form.instance.pk)
@@ -289,9 +304,7 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
         request.session["collection-add-ids"] = selected
         return HttpResponseRedirect(reverse("archive:add-to-collection"))
 
-    add_works_to_collection.short_description = (
-        "Add selected digitized works to collections"
-    )
+    add_works_to_collection.short_description = "Add selected digitized works to collections"
     add_works_to_collection.allowed_permissions = ("change",)
 
     def suppress_works(self, request, queryset):
@@ -308,8 +321,7 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
         if ids_to_suppress:
             solr = SolrClient()
             solr.update.delete_by_query(
-                "source_id:(%s)"
-                % " OR ".join(['"%s"' % val for val in ids_to_suppress])
+                "source_id:(%s)" % " OR ".join(['"%s"' % val for val in ids_to_suppress])
             )
         # report on what was done, including any skipped
         skipped = ""
@@ -318,8 +330,7 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
             skipped = " Skipped %d (already suppressed)." % (qs_total - updated)
         self.message_user(
             request,
-            "Suppressed %d digitized work%s.%s"
-            % (updated, "" if updated == 1 else "s", skipped),
+            "Suppressed %d digitized work%s.%s" % (updated, "" if updated == 1 else "s", skipped),
         )
 
     suppress_works.short_description = "Suppress selected digitized works"
@@ -338,8 +349,145 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
 
 
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ("name", "exclude")
+    list_display = ("name", "adapter_name", "field_count", "exclude")
     list_editable = ("exclude",)
+    list_filter = ("adapter_name", "exclude")
+    search_fields = ("name",)
+    actions = ["bulk_set_adapter", "bulk_copy_fields", "preview_fields"]
+
+    fieldsets = (
+        (None, {"fields": ("name", "exclude")}),
+        (
+            "Adapter Configuration",
+            {
+                "fields": ("adapter_name", "list_view_fields"),
+                "description": """
+                <p><strong>Adapter Name:</strong> The adapter to use for this collection (e.g., "cookbook", "scifi").</p>
+                <p><strong>List View Fields:</strong> Custom fields to display in the archive list view.
+                Leave empty to use adapter defaults.</p>
+            """,
+            },
+        ),
+    )
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Use custom form with visual field selector."""
+        from ppa.archive.forms_admin import CollectionAdminForm
+
+        kwargs["form"] = CollectionAdminForm
+        return super().get_form(request, obj, **kwargs)
+
+    @admin.display(description="Fields")
+    def field_count(self, obj):
+        """Display number of configured fields."""
+        if obj.list_view_fields:
+            return f"{len(obj.list_view_fields)} custom"
+        elif obj.adapter_name:
+            from ppa.adapters.loader import get_adapter
+
+            adapter = get_adapter(obj.adapter_name)
+            if adapter and adapter.display_fields and "list_view" in adapter.display_fields:
+                return f"{len(adapter.display_fields['list_view'])} default"
+        return "—"
+
+    @admin.action(description="Set adapter for selected collections")
+    def bulk_set_adapter(self, request, queryset):
+        """Bulk action to set adapter for multiple collections."""
+        from django.shortcuts import render
+        from django import forms
+
+        class BulkAdapterForm(forms.Form):
+            adapter_name = forms.ChoiceField(
+                choices=[
+                    ("", "-- Select Adapter --"),
+                    ("cookbook", "Cookbook"),
+                    ("scifi", "Science Fiction"),
+                    ("feeding_america", "Feeding America"),
+                ],
+                required=True,
+            )
+
+        if "apply" in request.POST:
+            form = BulkAdapterForm(request.POST)
+            if form.is_valid():
+                adapter_name = form.cleaned_data["adapter_name"]
+                count = queryset.update(adapter_name=adapter_name)
+                self.message_user(
+                    request, f"Successfully set adapter '{adapter_name}' for {count} collection(s)."
+                )
+                return
+
+        form = BulkAdapterForm()
+        return render(
+            request,
+            "admin/collection_bulk_adapter.html",
+            {"form": form, "collections": queryset, "title": "Set Adapter for Collections"},
+        )
+
+    @admin.action(description="Copy field configuration to selected collections")
+    def bulk_copy_fields(self, request, queryset):
+        """Bulk action to copy field configuration from one collection to others."""
+        from django.shortcuts import render
+        from django import forms
+
+        class BulkCopyFieldsForm(forms.Form):
+            source_collection = forms.ModelChoiceField(
+                queryset=Collection.objects.exclude(list_view_fields__isnull=True),
+                required=True,
+                label="Copy from",
+            )
+
+        if "apply" in request.POST:
+            form = BulkCopyFieldsForm(request.POST)
+            if form.is_valid():
+                source = form.cleaned_data["source_collection"]
+                count = 0
+                for collection in queryset:
+                    collection.list_view_fields = source.list_view_fields
+                    collection.save()
+                    count += 1
+
+                self.message_user(
+                    request, f"Successfully copied field configuration to {count} collection(s)."
+                )
+                return
+
+        form = BulkCopyFieldsForm()
+        return render(
+            request,
+            "admin/collection_bulk_copy_fields.html",
+            {"form": form, "collections": queryset, "title": "Copy Field Configuration"},
+        )
+
+    @admin.action(description="Preview field configuration")
+    def preview_fields(self, request, queryset):
+        """Preview how fields will be displayed."""
+        from django.shortcuts import render
+
+        collections_data = []
+        for collection in queryset:
+            from ppa.adapters.loader import get_adapter
+
+            adapter = None
+            fields = None
+
+            if collection.adapter_name:
+                adapter = get_adapter(collection.adapter_name)
+
+                if collection.list_view_fields:
+                    fields = collection.list_view_fields
+                elif adapter and adapter.display_fields:
+                    fields = adapter.display_fields.get("list_view", [])
+
+            collections_data.append(
+                {"collection": collection, "adapter": adapter, "fields": fields}
+            )
+
+        return render(
+            request,
+            "admin/collection_preview_fields.html",
+            {"collections_data": collections_data, "title": "Preview Field Configuration"},
+        )
 
 
 class DigitizedWorkInline(admin.TabularInline):

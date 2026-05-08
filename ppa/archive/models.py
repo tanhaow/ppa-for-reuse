@@ -15,7 +15,6 @@ from flags import Flags
 from intspan import ParseError as IntSpanParseError
 from intspan import intspan
 from pairtree import storage_exceptions
-from parasolr.django import SolrQuerySet
 from parasolr.django.indexing import ModelIndexable
 from parasolr.indexing import Indexable
 from wagtail.admin.panels import FieldPanel
@@ -74,14 +73,27 @@ class Collection(TrackChangesModel):
     description = RichTextField(blank=True)
     #: flag to indicate collections to be excluded by default in
     #: public search
-    exclude = models.BooleanField(
-        default=False, help_text="Exclude by default on public search."
+    exclude = models.BooleanField(default=False, help_text="Exclude by default on public search.")
+    #: name of the adapter to use for works in this collection
+    adapter_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Name of the adapter to use for works in this collection (optional)",
+    )
+    #: custom list view fields configuration (overrides adapter defaults)
+    list_view_fields = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Custom fields to display in list view (JSON array). Leave empty to use adapter defaults.",
     )
 
     # configure for editing in wagtail admin
     panels = [
         FieldPanel("name"),
         FieldPanel("description"),
+        FieldPanel("adapter_name"),
+        FieldPanel("list_view_fields"),
     ]
 
     class Meta:
@@ -89,6 +101,62 @@ class Collection(TrackChangesModel):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        """Validate adapter_name and list_view_fields configuration."""
+        super().clean()
+
+        # Validate adapter_name
+        if self.adapter_name:
+            from ppa.adapters.loader import get_adapter
+
+            adapter = get_adapter(self.adapter_name)
+            if adapter is None:
+                from django.core.exceptions import ValidationError
+
+                raise ValidationError(
+                    {"adapter_name": f'Adapter "{self.adapter_name}" not found or invalid'}
+                )
+
+        # Validate list_view_fields JSON schema
+        if self.list_view_fields:
+            from django.core.exceptions import ValidationError
+
+            # Check if it's a list
+            if not isinstance(self.list_view_fields, list):
+                raise ValidationError({"list_view_fields": "Must be a JSON array (list)"})
+
+            # Validate each field configuration
+            for idx, field_config in enumerate(self.list_view_fields):
+                if not isinstance(field_config, dict):
+                    raise ValidationError(
+                        {
+                            "list_view_fields": f'Item {idx + 1} must be an object with "field" and "label" properties'
+                        }
+                    )
+
+                # Check required fields
+                if "field" not in field_config:
+                    raise ValidationError(
+                        {"list_view_fields": f'Item {idx + 1} is missing required property "field"'}
+                    )
+
+                if "label" not in field_config:
+                    raise ValidationError(
+                        {"list_view_fields": f'Item {idx + 1} is missing required property "label"'}
+                    )
+
+                # Validate field name format (should have adapter prefix)
+                field_name = field_config["field"]
+                if self.adapter_name and not field_name.startswith(f"{self.adapter_name}_"):
+                    # Check if it's a common field (title, author, etc.)
+                    common_fields = ["title", "author", "pub_date", "pub_place", "publisher"]
+                    if field_name not in common_fields:
+                        raise ValidationError(
+                            {
+                                "list_view_fields": f'Field "{field_name}" should start with adapter prefix "{self.adapter_name}_"'
+                            }
+                        )
 
     @property
     def name_changed(self):
@@ -102,25 +170,80 @@ class Collection(TrackChangesModel):
         values are a dictionary with count and dates.
         """
 
-        # NOTE: if we *only* want counts, could just do a regular facet
-        sqs = (
-            SolrQuerySet()
-            .stats("{!tag=piv1 min=true max=true}pub_date")
-            .facet(pivot="{!stats=piv1}collections_exact")
-        )
-        facet_pivot = sqs.get_facets().facet_pivot
-        # simplify the pivot stat data for display
-        stats = {}
-        for collection in facet_pivot.collections_exact:
-            pub_date_stats = collection.stats.stats_fields.pub_date
-            stats[collection.value] = {
-                "count": collection.count,
-                "dates": "%(min)d–%(max)d" % pub_date_stats
-                if pub_date_stats.max != pub_date_stats.min
-                else "%d" % (pub_date_stats.min or 0,),
-            }
+        # Use simple facet query since pivot with stats is complex
+        try:
+            from parasolr.django import SolrClient
+            import requests
 
-        return stats
+            solr = SolrClient()
+            # Build full Solr URL with core name
+            solr_url = f"{solr.solr_url.rstrip('/')}/ppa/select"
+
+            # Query Solr directly using requests for facet counts
+            response = requests.get(
+                solr_url,
+                params={
+                    "q": "*:*",
+                    "rows": 0,
+                    "facet": "true",
+                    "facet.field": "collections_str",
+                    "facet.limit": -1,
+                    "wt": "json",
+                },
+            )
+
+            if response.status_code != 200:
+                logger.error(f"Solr query failed with status {response.status_code}")
+                return {}
+
+            data = response.json()
+            stats = {}
+
+            facet_fields = data.get("facet_counts", {}).get("facet_fields", {})
+            collections_facets = facet_fields.get("collections_str", [])
+
+            # Facet results come as alternating name/count pairs
+            for i in range(0, len(collections_facets), 2):
+                if i + 1 < len(collections_facets):
+                    collection_name = collections_facets[i]
+                    count = collections_facets[i + 1]
+
+                    # Get date range for this collection
+                    stats_response = requests.get(
+                        solr_url,
+                        params={
+                            "q": f'collections_str:"{collection_name}"',
+                            "rows": 0,
+                            "stats": "true",
+                            "stats.field": "pub_date",
+                            "wt": "json",
+                        },
+                    )
+
+                    if stats_response.status_code == 200:
+                        stats_data = stats_response.json()
+                        pub_date_stats = (
+                            stats_data.get("stats", {}).get("stats_fields", {}).get("pub_date", {})
+                        )
+                        min_date = pub_date_stats.get("min", 0)
+                        max_date = pub_date_stats.get("max", 0)
+
+                        stats[collection_name] = {
+                            "count": count,
+                            "dates": f"{int(min_date)}–{int(max_date)}"
+                            if min_date != max_date
+                            else f"{int(min_date or 0)}",
+                        }
+                    else:
+                        # If stats query fails, just use count without dates
+                        stats[collection_name] = {"count": count, "dates": ""}
+
+            return stats
+        except Exception:
+            # If Solr is unreachable or any Solr-related error occurs, log and
+            # return empty stats so the site can still render in development.
+            logger.exception("Unable to fetch collection stats from Solr; returning empty stats")
+            return {}
 
 
 class Cluster(TrackChangesModel):
@@ -989,6 +1112,15 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
         if self.status == self.SUPPRESSED:
             return {"id": self.source_id}
 
+        # Allow adapter-provided mapping to extend or override the default
+        # index data via a central mapping helper (implemented in solr_factory).
+        try:
+            from ppa.solr_factory import map_model_to_solr
+
+            adapter_doc = map_model_to_solr(self)
+        except Exception:
+            adapter_doc = {}
+
         index_id = self.index_id()
         return {
             "id": index_id,
@@ -1019,7 +1151,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
             "order": "0",
             "work_type_s": self.work_type,
             "book_journal_s": self.book_journal,
-        }
+        } | adapter_doc
 
     def remove_from_index(self):
         """Remove the current work and associated pages from Solr index"""
@@ -1097,6 +1229,32 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
         if self.source == DigitizedWork.OTHER:
             return "View external record"
         return f"View on {self.get_source_display()}"
+
+    def get_adapter_field(self, path, default=None):
+        """
+        Resolve a dotted path like 'metadata.ingredients' or 'title'.
+
+        Args:
+            path: Dotted path to field (e.g., 'metadata.cook_time' or 'title')
+            default: Default value if path not found
+
+        Returns:
+            Field value or default
+        """
+        parts = path.split(".")
+
+        # Handle metadata paths
+        if parts[0] == "metadata":
+            cur = self.metadata
+            for p in parts[1:]:
+                if isinstance(cur, dict) and p in cur:
+                    cur = cur[p]
+                else:
+                    return default
+            return cur
+
+        # Handle direct attributes
+        return getattr(self, path, default)
 
     @staticmethod
     def add_from_hathi(htid, bib_api=None, update=False, log_msg_src=None, user=None):
@@ -1212,9 +1370,7 @@ class Page(Indexable):
         digworks = DigitizedWork.items_to_index()
         if source is not None:
             digworks = digworks.filter(source=source)
-        return (
-            digworks.aggregate(total_pages=models.Sum("page_count"))["total_pages"] or 0
-        )
+        return digworks.aggregate(total_pages=models.Sum("page_count"))["total_pages"] or 0
 
     @classmethod
     def index_item_type(cls):
