@@ -5,28 +5,32 @@ Patch points in code should import from `ppa.solr_factory` instead of
 `parasolr.django` so behavior can be toggled at runtime.
 """
 import logging
-from ppa.flags import is_flag_enabled
 
 logger = logging.getLogger(__name__)
 
-# Evaluate whether Solr is enabled via waffle/switches or settings (once at import time)
-ENABLE_SOLR = is_flag_enabled("ENABLE_SOLR_INDEXING")
 
-# Attempt to import real parasolr classes under distinct names to avoid
-# redefinition issues when we expose factory names below.
+def _is_solr_enabled():
+    """Check if Solr indexing is enabled. Deferred to avoid import-time DB access
+    before migrations have run (waffle_switch table may not exist yet)."""
+    try:
+        from ppa.flags import is_flag_enabled
+        return is_flag_enabled("ENABLE_SOLR_INDEXING")
+    except Exception:
+        return False
+
+
+# Always import real parasolr classes so they're available when Solr is enabled.
 RealSolrClient = None
 RealSolrQuerySet = None
 RealAliasedSolrQuerySet = None
-if ENABLE_SOLR:
-    try:
-        from parasolr.django import (
-            SolrClient as RealSolrClient,
-            SolrQuerySet as RealSolrQuerySet,
-            AliasedSolrQuerySet as RealAliasedSolrQuerySet,
-        )
-    except Exception:
-        logger.exception("Failed to import parasolr; falling back to fake clients")
-        ENABLE_SOLR = False
+try:
+    from parasolr.django import (
+        SolrClient as RealSolrClient,
+        SolrQuerySet as RealSolrQuerySet,
+        AliasedSolrQuerySet as RealAliasedSolrQuerySet,
+    )
+except Exception:
+    logger.exception("Failed to import parasolr; will use fake clients")
 
 
 class FakeSolrClient:
@@ -183,13 +187,13 @@ class FakeSolrQuerySet:
 
 
 def SolrClientFactory(*args, **kwargs):
-    if ENABLE_SOLR and RealSolrClient is not None:
+    if _is_solr_enabled() and RealSolrClient is not None:
         return RealSolrClient(*args, **kwargs)
     return FakeSolrClient()
 
 
 def SolrQuerySetFactory(*args, **kwargs):
-    if ENABLE_SOLR and RealSolrQuerySet is not None:
+    if _is_solr_enabled() and RealSolrQuerySet is not None:
         return RealSolrQuerySet(*args, **kwargs)
     return FakeSolrQuerySet()
 
@@ -197,8 +201,9 @@ def SolrQuerySetFactory(*args, **kwargs):
 # Export names for backward-compatible imports
 SolrClient = SolrClientFactory
 SolrQuerySet = SolrQuerySetFactory
-# AliasedSolrQuerySet must be a class (not factory) for inheritance to work
-if ENABLE_SOLR and RealAliasedSolrQuerySet is not None:
+# AliasedSolrQuerySet must be a class (not factory) for inheritance to work;
+# resolve at first use via a lazy wrapper to avoid import-time DB access.
+if RealAliasedSolrQuerySet is not None:
     AliasedSolrQuerySet = RealAliasedSolrQuerySet
 else:
     AliasedSolrQuerySet = FakeSolrQuerySet
