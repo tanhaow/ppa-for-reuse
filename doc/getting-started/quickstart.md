@@ -1,22 +1,27 @@
-# PPA Django Reuse - Quick Start Guide
+# Quick Start Guide
 
-Get started with PPA Django Reuse in 3 simple steps.
+Get PPA Django Reuse running locally. Two paths are available: **Docker + Devbox** (recommended, fully automated) or **manual** (if you prefer to manage services yourself).
 
 ## Prerequisites
 
-- [Homebrew](https://brew.sh) - Required for Solr
-- [Devbox](https://www.jetify.com/devbox/docs/installing_devbox/) - Manages Python and Node.js versions
-- PostgreSQL 15 (via homebrew) - `brew install postgresql@15 && brew services start postgresql@15`
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — runs PostgreSQL and Solr
+- Git
 
-## Setup (First Time)
+That's it for the Docker path. Devbox and Python/Node are optional if you use the manual path.
 
-### Step 1: Install Devbox
+---
+
+## Path A: Docker + Devbox (recommended)
+
+Devbox pins Python 3.12 and Node 22, installs all dependencies, and wires up the environment automatically.
+
+### 1. Install Devbox
 
 ```bash
 curl -fsSL https://get.jetify.com/devbox | bash
 ```
 
-### Step 2: Clone and enter the environment
+### 2. Clone and enter the environment
 
 ```bash
 git clone https://github.com/Princeton-CDH/ppa-django-reuse.git
@@ -24,127 +29,196 @@ cd ppa-django-reuse
 devbox shell
 ```
 
-### Step 3: Set up the database
+`devbox shell` installs Python 3.12, Node 22, creates `.venv`, and runs `pip install` and `npm install` automatically on first entry.
+
+### 3. Create local settings
 
 ```bash
-createdb ppa
-psql -c "CREATE USER ppa WITH PASSWORD 'ppa';" postgres
-psql -c "GRANT ALL PRIVILEGES ON DATABASE ppa TO ppa;" postgres
-.venv/bin/python manage.py migrate
-.venv/bin/python manage.py setup_site_pages
-.venv/bin/python manage.py createsuperuser
+cp ppa/settings/local_settings.py.sample ppa/settings/local_settings.py
 ```
 
-### Step 4: Set up Solr
+Open the file and set a `SECRET_KEY`. Everything else works with the defaults for local development.
+
+### 4. Run setup
 
 ```bash
-brew install solr
-bash setup_solr.sh
+devbox run setup
 ```
 
-This will:
-- Start Solr with the required `analysis-extras` module
-- Create the `ppa` core
-- Configure all schema fields and copyFields
-- Index all works
+This single command:
+- Starts PostgreSQL 15 and Solr 9 via Docker Compose
+- Runs `manage.py migrate`
+- Runs `manage.py setup_site_pages`
+- Creates an admin user (`admin` / `admin123`)
+- Creates waffle feature flag switches
+- Uploads the project Solr schema into the container and reloads the core
 
-### Step 5: Start Development Server
+### 5. Start the development server
 
 ```bash
 devbox run dev
 ```
 
-Visit **http://localhost:8000** 🎉
+Visit **http://localhost:8000** — the archive is at **/archive/**, admin at **/admin/**.
 
-**Admin Access**: http://localhost:8000/admin
+---
 
-## Daily Development
+## Path B: Manual setup
+
+Use this if you already have Python 3.12 and Node 22 installed, or if you don't want to use Devbox.
+
+### 1. Clone
 
 ```bash
-# Enter development environment
-devbox shell
-
-# Start Solr (if not already running)
-SOLR_MODULES=analysis-extras /opt/homebrew/bin/solr start -p 8983
-
-# Or start all services via devbox
-devbox services up
-
-# Start server
-devbox run dev
-
-# Run tests
-devbox run test
+git clone https://github.com/Princeton-CDH/ppa-django-reuse.git
+cd ppa-django-reuse
 ```
 
-## Available Commands
+### 2. Python environment
 
-| Command | Description |
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r dev-requirements.txt
+```
+
+### 3. Frontend assets
+
+```bash
+npm install
+npm run build
+```
+
+This generates `webpack-stats.json`, which Django requires at startup.
+
+### 4. Local settings
+
+```bash
+cp ppa/settings/local_settings.py.sample ppa/settings/local_settings.py
+```
+
+Set a `SECRET_KEY` in the file. The defaults connect to the Docker services on their standard ports.
+
+### 5. Start Docker services
+
+```bash
+docker compose -f docker/docker-compose.dev.yml up -d
+```
+
+Wait a few seconds for PostgreSQL to become healthy.
+
+### 6. Database and Solr setup
+
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/bash scripts/setup.sh
+```
+
+Or step by step:
+
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py migrate
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py setup_site_pages
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py createsuperuser
+
+# Upload Solr schema
+docker cp solr_conf/conf/managed-schema.xml docker-solr-1:/var/solr/data/ppa/conf/managed-schema.xml
+docker cp solr_conf/conf/solrconfig.xml      docker-solr-1:/var/solr/data/ppa/conf/solrconfig.xml
+docker cp solr_conf/conf/elevate.xml         docker-solr-1:/var/solr/data/ppa/conf/elevate.xml
+docker cp solr_conf/conf/params.json         docker-solr-1:/var/solr/data/ppa/conf/params.json
+docker cp solr_conf/conf/stemdict_ppa.txt    docker-solr-1:/var/solr/data/ppa/conf/stemdict_ppa.txt
+docker cp solr_conf/conf/synonyms.txt        docker-solr-1:/var/solr/data/ppa/conf/synonyms.txt
+docker cp solr_conf/conf/protwords.txt       docker-solr-1:/var/solr/data/ppa/conf/protwords.txt
+docker cp solr_conf/conf/stopwords.txt       docker-solr-1:/var/solr/data/ppa/conf/stopwords.txt
+curl -s "http://localhost:8983/solr/admin/cores?action=RELOAD&core=ppa"
+```
+
+### 7. Start the development server
+
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py runserver
+```
+
+---
+
+## Daily development
+
+```bash
+# Devbox path
+devbox shell          # re-enter environment after closing terminal
+devbox run dev        # start server (Docker services must be running)
+
+# Manual path
+docker compose -f docker/docker-compose.dev.yml up -d   # start services if stopped
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py runserver
+```
+
+### Devbox commands
+
+| Command | What it does |
 |---------|-------------|
-| `devbox services up` | Start Solr (and PostgreSQL if configured) |
-| `devbox run dev` | Start development server |
-| `devbox run test` | Run all tests |
-| `devbox run verify` | Verify setup is correct |
-| `bash setup_solr.sh` | (Re)initialize Solr core, schema, and index |
+| `devbox run setup` | Full first-time setup (Docker + DB + Solr + admin user) |
+| `devbox run dev` | Start Django development server on port 8000 |
+| `devbox run test` | Run Python tests (`pytest`) and JS tests (`npm test`) |
+| `devbox run verify` | Check that all components are configured correctly |
+| `devbox run clean` | Stop Docker services and remove `.venv`, `node_modules`, built assets |
 
-## Loading Sample Data
+---
+
+## Loading sample data
+
+The repo includes three example datasets. After setup, load one or more:
 
 ```bash
-# Cookbook dataset
-.venv/bin/python load_cookbook_data.py
+# Historical cookbooks
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python load_cookbook_data.py
 
-# Sci-fi books dataset
-.venv/bin/python import_scifi.py
+# Sci-fi books (imports from test_datasets/sci_fi_books/)
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python import_scifi.py
 
-# Feeding America dataset
-.venv/bin/python import_feeding_america.py
+# Feeding America historical cookbooks
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python import_feeding_america.py
 
-# Reindex after import
-.venv/bin/python manage.py index --index work
+# Reindex after any import
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py index --index work
 ```
 
-## Switching Adapters
+---
+
+## Switching adapters
 
 Edit `ppa/settings/local_settings.py`:
 
 ```python
-ARCHIVE_ADAPTER = 'cookbook'   # or 'scifi', 'feeding_america'
-ARCHIVE_TYPE = 'cookbook'
+ARCHIVE_ADAPTER = 'cookbook'   # or 'scifi', 'feeding_america', or None
 ```
 
 Then reindex:
 
 ```bash
-.venv/bin/python manage.py index --index work
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py index --index work
 ```
 
-## Troubleshooting
+See [Creating Adapters](../adapters/creating-adapters.md) to build your own.
 
-### Solr 404 / core not found?
+---
 
+## Common issues
+
+**`webpack-stats.json` not found on startup**
+Run `npm run build` to generate it. This is required before the first server start.
+
+**Port 5432 already in use**
+Your machine has a local PostgreSQL running (e.g. Homebrew). The Docker container still starts but maps to the same port. Django will connect to whichever process owns the port — if it's your local PostgreSQL, make sure the `ppa` database and user exist there, or stop the local service and let Docker own the port.
+
+**Solr unhealthy / `solrconfig.xml` permission denied**
+The Docker volume has stale data from a previous container. Remove it and restart:
 ```bash
-bash setup_solr.sh
+docker compose -f docker/docker-compose.dev.yml down -v
+docker compose -f docker/docker-compose.dev.yml up -d
+# then re-run scripts/setup.sh to re-upload the schema
 ```
 
-### Collections showing 0 works?
+**`manage.py check` warns about missing `bundles/` directory**
+This is expected before running `npm run build`. It's a staticfiles warning, not an error, and doesn't prevent the server from starting.
 
-The `collections_str` copyField may be missing. Re-run `setup_solr.sh` — it
-adds the copyField and reindexes automatically.
-
-### Port 5432 conflict?
-
-If homebrew PostgreSQL is already running, remove `postgresql@15` from
-`devbox.json` to prevent devbox from trying to start a second instance.
-
-### Port 8983 conflict?
-
-```bash
-/opt/homebrew/bin/solr stop -p 8983
-```
-
-## More Help
-
-- [Adapter Guide](../adapters/creating-adapters.md)
-- [Solr Setup](../operations/solr-setup.md)
-- [Developer Notes](../development/developer-notes.rst)
-- [GitHub Issues](https://github.com/Princeton-CDH/ppa-django-reuse/issues)
+**Devbox fails with path-contains-spaces error**
+Devbox 0.16.x cannot handle project paths with spaces. Either move the project to a path without spaces, or use the manual setup path (Path B above).

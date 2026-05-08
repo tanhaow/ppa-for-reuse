@@ -1,348 +1,249 @@
-Developer notes
-===============
+# Developer Setup
 
+This page covers the development environment in detail — what each component does, how the pieces fit together, and how to work with them day-to-day.
 
-Local Solr setup
-----------------
-Install Solr via `brew <https://formulae.brew.sh/formula/solr>`::
+For a quick first-time setup, see the [Quick Start Guide](../getting-started/quickstart.md).
 
-    brew install solr
+---
 
-Copy the Solr config files in as a configset named `ppa`::
+## Environment overview
 
-    cp -r solr_conf /opt/homebrew/opt/solr/server/solr/configsets/ppa
+| Component | Version | How it runs |
+|-----------|---------|-------------|
+| Python | 3.12 | `.venv/` (virtualenv) |
+| Node.js | 22 | system or Devbox |
+| PostgreSQL | 15 | Docker (`docker-compose.dev.yml`) |
+| Solr | 9 | Docker (`docker-compose.dev.yml`) |
+| Django | 5.2 | via `.venv` |
+| Wagtail | 7.0 | via `.venv` |
 
-Create symbolic link to configsets in the Solr home directory::
+### Why Docker for services?
 
-    ln -s /opt/homebrew/opt/solr/server/solr/configsets /opt/homebrew/var/lib/solr/
+PostgreSQL and Solr run in Docker so you don't need to manage local installations or worry about version conflicts. The `docker-compose.dev.yml` file defines both services with persistent named volumes, so data survives container restarts.
 
-Create a new core with the `ppa` configset (Solr must be running)::
+### Why Devbox?
 
-    curl "http://localhost:8983/solr/admin/cores?action=CREATE&name=ppa&configSet=ppa"
+Devbox pins the exact Python and Node versions declared in `devbox.json` and sets up the virtualenv automatically on `devbox shell`. It's optional — if you already have Python 3.12 and Node 22, the manual path works fine.
 
-When the configset has changed, copy in the updated Solr config files::
+---
 
-    cp solr_conf/* /opt/homewbrew/var/lib/solr/configsets/ppa/
+## Repository layout (key paths)
 
-Start Solr by running the following command::
+```
+ppa-for-reuse/
+├── ppa/
+│   ├── adapters/          # adapter loader and HathiTrust shim
+│   ├── archive/           # main Django app (models, views, admin, solr)
+│   ├── settings/
+│   │   ├── components/    # split settings (base, logging, etc.)
+│   │   ├── environments/  # test.py
+│   │   └── local_settings.py   # gitignored, created from .sample
+│   ├── flags.py           # waffle feature flag helpers
+│   └── solr_factory.py    # real/fake Solr toggle
+├── examples/adapters/     # cookbook, scifi, feeding_america examples
+├── solr_conf/conf/        # Solr schema and config files
+├── srcmedia/
+│   ├── js/controllers/    # Stimulus controllers
+│   ├── ts/                # TypeScript (searchWithin)
+│   └── scss/              # Sass stylesheets
+├── templates/             # Django templates
+├── test_datasets/         # sample CSV/XML data for example adapters
+├── docker/
+│   └── docker-compose.dev.yml
+├── scripts/               # setup.sh, verify.sh, etc.
+└── doc/                   # this documentation
+```
 
-    /opt/homebrew/opt/solr/bin/solr start -f
+---
 
+## First-time setup
 
-Local PostgreSQL
-----------------
-Install PostgreSQL via `brew <https://formulae.brew.sh/formula/postgresql@15>`::
+### 1. Docker services
 
-    brew install postgresql@15
+```bash
+docker compose -f docker/docker-compose.dev.yml up -d
+```
 
-Start PostgreSQL (or restart after an ugrade)::
+This starts:
+- **PostgreSQL 15** on port 5432 (user: `ppa`, password: `ppa`, database: `ppa`)
+- **Solr 9** on port 8983 with the `analysis-extras` and `scripting` modules
 
-    brew services start postgresql@15
+Check they're healthy:
 
-Add PostgreSQL to your PATH::
+```bash
+docker compose -f docker/docker-compose.dev.yml ps
+```
 
-    echo 'export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"' >> ~/.zshrc
+Both should show `(healthy)` within about 15 seconds.
 
+### 2. Python environment
 
-Solr setup with Docker
-----------------------
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r dev-requirements.txt
+```
 
-Create a new docker container with the Solr 9.2 image::
+Or with Devbox (handles this automatically on `devbox shell`).
 
-    docker run --name solr92 -p 8983:8983 -t solr:9.2
+### 3. Frontend assets
 
-Copy the solr config files in as a configset named `ppa`::
+```bash
+npm install
+npm run build
+```
 
-    docker cp solr_conf solr92:/opt/solr/server/solr/configsets/ppa
+This generates `webpack-stats.json` and the compiled CSS/JS bundles in `bundles/`. Django's `django-webpack-loader` reads `webpack-stats.json` at startup — the server will raise an `OSError` if it's missing.
 
-Change ownership  of the configset files to the `solr` user::
+For active frontend development, use `npm run dev` instead (webpack dev server with hot reload).
 
-    docker exec --user root solr92 /bin/bash -c "chown -R solr:solr /opt/solr/server/solr/configsets/ppa"
+### 4. Local settings
 
-Copy the configsets to the solr data directory::
+```bash
+cp ppa/settings/local_settings.py.sample ppa/settings/local_settings.py
+```
 
-    docker exec -d solr92 cp -r /opt/solr/server/solr/configsets /var/solr/data
+Minimum required change: set `SECRET_KEY`. The sample file has comments explaining every option. Key settings for local development:
 
-Create a new core with the `ppa` configset::
+```python
+SECRET_KEY = 'your-secret-key-here'
+DEBUG = True
 
-    curl "http://localhost:8983/solr/admin/cores?action=CREATE&name=ppa&configSet=ppa"
+# Adapter to activate (optional)
+# ARCHIVE_ADAPTER = 'cookbook'
 
-When the configset has changed, copy in the updated solr config files::
+# Solr — defaults match the Docker service
+SOLR_CONNECTIONS["default"].update({
+    "URL": "http://localhost:8983/solr/",
+})
+```
 
-    docker cp solr_conf/* solr92:/var/solr/data/configsets/ppa/
+### 5. Database migrations
 
-Setup
------
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py migrate
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py setup_site_pages
+```
 
-Solr changes not reflected in search results? ``solrconfig.xml`` must be
-updated in Solr's main directory: ``solr/server/solr/[CORE]/conf/solrconfig.xml``
+### 6. Solr schema
 
+The Solr container starts with a default schema. Upload the project's schema:
 
-Getting full-text data
-----------------------
+```bash
+docker cp solr_conf/conf/managed-schema.xml docker-solr-1:/var/solr/data/ppa/conf/managed-schema.xml
+docker cp solr_conf/conf/solrconfig.xml      docker-solr-1:/var/solr/data/ppa/conf/solrconfig.xml
+docker cp solr_conf/conf/elevate.xml         docker-solr-1:/var/solr/data/ppa/conf/elevate.xml
+docker cp solr_conf/conf/params.json         docker-solr-1:/var/solr/data/ppa/conf/params.json
+docker cp solr_conf/conf/stemdict_ppa.txt    docker-solr-1:/var/solr/data/ppa/conf/stemdict_ppa.txt
+docker cp solr_conf/conf/synonyms.txt        docker-solr-1:/var/solr/data/ppa/conf/synonyms.txt
+docker cp solr_conf/conf/protwords.txt       docker-solr-1:/var/solr/data/ppa/conf/protwords.txt
+docker cp solr_conf/conf/stopwords.txt       docker-solr-1:/var/solr/data/ppa/conf/stopwords.txt
+curl -s "http://localhost:8983/solr/admin/cores?action=RELOAD&core=ppa"
+```
 
-Choose Your Import Strategy
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+`scripts/setup.sh` does all of this automatically.
 
-For Quick Testing:
+### 7. Admin user
 
-- Import volumes individually by ID imports, e.g. ``python manage.py hathi_add [id]``
-- Start with 1-2 items to verify configuration
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py createsuperuser
+```
 
-For Development Work (Import Partial data):
+Or use the shortcut in `scripts/setup.sh` which creates `admin` / `admin123`.
 
-- Import 100-500 representative items using file imports
-- Mix sources to test different functionality
+---
 
-For Full Development Environment (Import full data):
+## Running the server
 
--  Follow the full data workflow
--  Import complete datasets for realistic testing
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py runserver
+```
 
-Configuration Priority:
+With Devbox:
 
-- Configure required paths (``HATHI_DATA``, ``EEBO_DATA``, ``MARC_DATA``)
-- Configure API access (``GALE_API_USERNAME``)
-- Test with individual imports first
-- Scale up to file/CSV imports
+```bash
+devbox run dev
+```
 
-All full-text data
-^^^^^^^^^^^^^^^^^^
+The `devbox run dev` script also kills any process already on port 8000 before starting.
 
-To get a full copy of all PPA data for development, use ``rsync`` to copy
-files from the data directory on one of the staging VMs.  The majority of 
-the content is stored on an NFS mount point under ``/mnt/nfs/cdh/prosody/data/``:
+---
 
-- ``ht_text_pd``: HathiTrust pairtree data for PPA volumes
-- ``eebo_tcp``: XML and MARC records for EEBO-TCP volumes included in PPA
-- ``marc``: MARC records for Gale/ECCO content, in a pairtree format used for importing Gale content
+## Feature flags (waffle switches)
 
-Local OCR for Gale/ECCO content is on a TigerData NFS mount point:
+Runtime behaviour is controlled by [django-waffle](https://waffle.readthedocs.io/) switches. Create them in the Django admin under **Waffle > Switches**, or via the shell:
 
-- ``/mnt/tigerdata/cdh/prosody/ppa-ocr/Gale-by-vol``
+```python
+from waffle.models import Switch
+Switch.objects.update_or_create(name='enable_solr_indexing', defaults={'active': True})
+```
 
-Use rsync over ssh and copy these to a local staging area, and then configure
-the paths in your local settings file:
+| Switch | Default | Effect |
+|--------|---------|--------|
+| `enable_solr_indexing` | off | When off, Solr queries return empty results (useful for DB-only development) |
+| `enable_hathi` | off | Enables HathiTrust import commands |
+| `enable_corppa` | off | Enables corppa NLP utilities |
 
-- ``HATHI_DATA``: path to the top-level HathiTrust pairtree folder
-- ``EEBO_DATA``: path to the eebo_tcp folder
-- ``MARC_DATA``: path to MARC pairtree data for Gale records (required for import)
-- ``GALE_LOCAL_OCR``: path to Gale-by-vol local OCR content (optional)
+`scripts/setup.sh` creates all three switches in the off state.
 
-Indexing Gale/ECCO records requires access to the Gale API; you must configure
-*GALE_API_USERNAME* in local settings.
+---
 
-If you are working with full data, it's recommended to load a database dump from
-production or staging (e.g., as generated by the cdh-ansible replicate playbook),
-index work-level data to Solr with the ``index`` manage command::
+## Running tests
 
-    python manage.py index -i work
+```bash
+# Python tests
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python -m pytest
 
-Then index page contents with the ``index_pages`` manage command.  It may
-be useful to index pages from a specific source or by id, to test specific behavior
-or load a targeted subset of page content::
+# JavaScript unit tests
+npm run test:unit
 
-    python manage.py index_pages
+# Both
+devbox run test
+```
 
-Partial text data
-^^^^^^^^^^^^^^^^^
+The test settings in `ppa/settings/environments/test.py` use an in-memory SQLite database and a separate Solr test collection with aggressive `commitWithin` timing.
 
-PPA draws content from three different sources. Depending on the development
-work you are doing, you may not need all three.
+---
 
-HathiTrust
-""""""""""
+## Updating the Solr schema
 
-The HathiTrust data is fairly large; for many development tasks, it is
-sufficient to work with a subset of the data. To import specific volumes
-available in PPA staging, you can configure your local settings to use the
-PPA staging server as the HathiTrust rsync server:
+After editing `solr_conf/conf/managed-schema.xml`:
 
-Use these settings::
+```bash
+docker cp solr_conf/conf/managed-schema.xml docker-solr-1:/var/solr/data/ppa/conf/managed-schema.xml
+curl -s "http://localhost:8983/solr/admin/cores?action=RELOAD&core=ppa"
+```
 
-    HATHITRUST_RSYNC_SERVER = "pulsys@cdh-test-prosody1.princeton.edu"
-    HATHITRUST_RSYNC_PATH = "/mnt/nfs/cdh/prosody/data/ht_text_pd"
+Then reindex:
 
-You should then be able to use the ``hathi_add`` manage command or
-the admin interface to import specific HathiTrust records by id.
-Note that the application will make calls to the HathiTrust bibliographic API
-for metadata, which is used in tandem with local full-text content.
+```bash
+DJANGO_SETTINGS_MODULE=ppa.settings .venv/bin/python manage.py index --index work
+```
 
-Example (specify one or more HathiTrust IDs)::
+---
 
-    python manage.py hathi_add njp.32101068970508
+## Rebuilding from scratch
 
-Gale/ECCO
-""""""""""
+To wipe everything and start over:
 
-Gale/ECCO records can also be imported by id using the ``gale_import``
-manage command. Import requires the ``MARC_DATA`` path and MARC pairtree data.
-Page content will be pulled from local OCR content when
-the ``GALE_LOCAL_OCR`` path is configured and files are available.
+```bash
+# Stop and remove containers + volumes
+docker compose -f docker/docker-compose.dev.yml down -v
 
-Example (specify one or more Gale IDs)::
+# Remove Python and Node artifacts
+rm -rf .venv node_modules bundles webpack-stats.json
 
-    python manage.py gale_import CW0116618490
+# Re-run setup
+devbox run setup        # or follow the manual steps above
+```
 
-Access to the Gale API requires a ``GALE_API_USERNAME`` to be configured.
-This configuration can be found in the local settings file on the staging
-and production servers, and is also available as an encrypted variable in
-`cdh-ansible <https://github.com/Princeton-CDH/cdh-ansible/>`_. With
-a working local install of cdh-ansible with the ansible vault password, run::
+---
 
-    ./bin/vault_vars.py decrypt inventory/group_vars/prosody/vault.yml
+## Port reference
 
+| Port | Service |
+|------|---------|
+| 8000 | Django development server |
+| 5432 | PostgreSQL (Docker) |
+| 8983 | Solr (Docker) |
 
-EEBO-TCP
-""""""""
-
-EEBO-TCP records can be imported using the ``eebo_import`` script; this
-requires the ``EEBO_DATA`` folder and configuration and a CSV file with
-the records to be imported.  A copy of the CSV used for the production
-import is available in this repository
-at ``scripts/eebo_works.csv``.
-
-Import command::
-
-    python manage.py eebo_import scripts/eebo_works.csv
-
-
-Verification steps
-^^^^^^^^^^^^^^^^^
-
-The easiest way to check the data imported into your local database is 
-by using the Django Admin web interface. 
-
-- Start the development server: ``python manage.py runserver``
-- Create user account if needed: ``python manage.py createcasuser --admin netid``
-- Go to http://localhost:8000/admin/
-- Navigate to "Archive" → "Digitized works"
-- Filter by source to see imported items
-- Check individual records for page counts and metadata
-
-To check contents indexed in Solr:
-
--  Go to http://localhost:8983/solr/
-- Select 'ppa' in 'Core Selector'
-- The 'Statistics' section shows the number of indexed items
-- Use the default query (``*:*``) to see all content, or filter to see
-  specific subsets of content (e.g. ``item_type:page`` or ``item_type:work``)
-
-
-Updating HathiTrust records and generating a fresh text corpus
---------------------------------------------------------------
-
-These commands should be run on the production server as the deploy user
-with the python virtual environment activated.
-
-Update all HathiTrust documents with rsync::
-
-    python manage.py hathi_rsync
-
-This file will generate a csv report of the files that were updated.
-Use the resulting file to get a list of ids that need to be indexed::
-
-    cut -f 1 -d, ppa_rsync_changes_[TIMESTAMP].csv | sort | uniq | tail -n +2 > htids.txt
-
-Index pages for the documents that were updated via rsync to make sure
-Solr has all the updated page content::
-
-    python manage.py index_pages `cat htids.txt`
-
-Generate a new text corpus::
-
-    python manage.py generate_textcorpus
-
-Use rsync to copy the generated corpus output to a local machine and
-optionally also upload to TigerData.
-
-If you need to filter the corpus to a smaller set of records, use the
-`filter utility script <https://princeton-cdh.github.io/corppa/eop-docs.html#filter-utility>`_
-in the `corppa python library <https://github.com/Princeton-CDH/corppa>`_.
-
-
-Indexing with multiprocessing
------------------------------
-
-To run the multiprocessing page index script (`index_pages`) on MacOS versions past High Sierra, you must disable a security feature that restricts multithreading.
-Set this environment variable to override it: `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
-
-For more details, see `stack overflow <https://stackoverflow.com/questions/50168647/multiprocessing-causes-python-to-crash-and-gives-an-error-may-have-been-in-progr/52230415#52230415>`_.
-
-
-Postgresql setup
----------------
-
-To create a new postgres database and user for development::
-
-    psql -d postgres -c "DROP DATABASE ppa;"
-    psql -d postgres -c "DROP ROLE ppa;"
-    psql -d postgres -c "CREATE ROLE ppa WITH CREATEDB LOGIN PASSWORD 'ppa';"
-    psql -d postgres -U ppa -c "CREATE DATABASE ppa;"
-
-To replace a local development database with a dump of production data::
-
-    psql -d postgres -c "DROP DATABASE cdh_ppa;"
-    psql -d postgres -c "CREATE DATABASE cdh_ppa;"
-    psql cdh_ppa < data/13_daily_cdh_ppa_cdh_ppa_2023-01-11.Wednesday.sql
-
-
-Updating Wagtail test fixture
------------------------------
-
-We use a fixture in `ppa/common/fixtures/wagtail_pages.json` for some wagtail unit tests.
-To update this to reflect changes in new versions of wagtail:
-
-1. Create an empty database to use for migrated the fixture.
-2. Check out a version of the codebase before any new migrations have been applied,
-and run migrations up to that point on the new database (`python manage.py migrate`)
-3. Remove preloaded wagtail content from the database using python console or web interface.
-4. Check out the new version of the code with the updated version of wagtail.
-5. Run migrations.
-6. Exported the migrated fixture data back to the fixture file. It's essential
-to use the `--natural-foreign` option::
-
-    ./manage.py dumpdata --natural-foreign wagtailcore.site wagtailcore.page wagtailcore.revision pages editorial auth.User --indent 4 > ppa/common/fixtures/wagtail_pages.json
-
-7. Remove any extra user accounts from the fixture (like `script`)
-8. Use `git diff` to check for any other major changes.
-
-
-Testing local DocRaptor PDF generation
---------------------------------------
-
-In order for DocRaptor to read any content, you must open your localhost to the
-public with a service like Cloudflare Tunnel, e.g.::
-
-    npx cloudflared tunnel --url http://localhost:8000
-
-Then in Wagtail Site settings, set the default Site's hostname to the tunnel's
-public hostname (no protocol/slashes), and port 80. That way,
-``GeneratePdfPanel.BoundPanel.instance.full_url`` resolves to a public URL.
-
-Finally, set your ALLOWED_HOSTS setting to allow traffic via that domain,
-or simply set ``ALLOWED_HOSTS = ["*"]``.
-
-Note that this will not work in Webpack dev mode.
-
-When finished, set the default Site back to ``localhost`` and port 8000.
-
-
-Upgrading Fomantic UI
----------------------
-
-In order to upgrade to newer versions of Fomantic UI:
-
-1. Bump both ``fomantic-ui`` and ``fomantic-ui-less`` packages to the same
-   version number.
-2. Replace the contents of ``sitemedia/semantic/src/themes/default`` with the
-   new version's ``default`` theme. This can be found either in the
-   `Fomantic-UI-LESS repo <https://github.com/fomantic/Fomantic-UI-LESS>`_
-   or in ``node_modules/fomantic-ui-less/themes/default`` after installing the
-   new version.
-3. Check for deprecations or major changes between versions to see if any new
-   site or ``theme.config`` variables are required, or if behaviors have
-   changed.
-4. To test locally, rebuild with ``npm run build`` and collect static files
-   with ``python manage.py collectstatic``, then restart your dev server. Then
-   you can test the update locally (check styles, fonts, UI behaviors).
+If port 5432 is already in use by a local PostgreSQL installation, Django will connect to whichever process owns the port. The Docker container will still start but its port mapping will be blocked. Either stop the local PostgreSQL service, or configure Django to connect to a different port by editing `DATABASES` in `local_settings.py`.
