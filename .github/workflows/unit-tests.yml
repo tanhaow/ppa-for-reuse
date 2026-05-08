@@ -48,6 +48,8 @@ jobs:
         image: solr:9.2
         ports:
           - 8983:8983
+        options: >-
+          -e SOLR_MODULES=analysis-extras
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
