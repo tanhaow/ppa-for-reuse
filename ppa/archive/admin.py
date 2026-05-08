@@ -207,7 +207,7 @@ class DigitizedWorkAdmin(ExportActionMixin, ExportMixin, admin.ModelAdmin):
         formatted_json = json.dumps(obj.metadata, indent=2, ensure_ascii=False)
 
         # Wrap in <pre> tag for proper formatting and escape HTML
-        style = "background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;"
+        style = "background-color: #f5f5f5; padding: 10px; " "border-radius: 4px; overflow-x: auto;"
         return mark_safe(f'<pre style="{style}">{escape(formatted_json)}</pre>')
 
     metadata_display.short_description = "Metadata (JSON)"

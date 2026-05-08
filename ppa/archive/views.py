@@ -161,16 +161,14 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
                 if len(collections) < len(self.form.fields["collections"].choices):
                     # add quotes so solr will treat as exact phrase
                     # for multiword collection names
-                    # Use collections_str instead of collections_exact
-                    # (which doesn't exist in default schema)
-                    solr_q.work_filter(collections_str__in=['"%s"' % c for c in collections])
+                    solr_q.work_filter(collections_exact__in=['"%s"' % c for c in collections])
 
             # For collection exclusion logic to work properly, if no
             # collections are selected, no items should be returned.
             # This query should return no items but still provide facet
             # data to populate the collection filters on the form properly.
             else:
-                solr_q.work_filter(collections_str__exists=False)
+                solr_q.work_filter(collections_exact__exists=False)
 
             # filter books by title or author if there are search terms
             solr_q.work_title_search(search_opts.get("title", None))
@@ -269,9 +267,15 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
         selected_collections = self.form.cleaned_data.get("collections", [])
 
         # If only one collection is selected, use its adapter
-        if selected_collections and len(selected_collections) == 1:
+        # selected_collections may contain strings (the "no collection" empty value)
+        # so guard against non-Collection items; also guard against non-list types
+        try:
+            selected_len = len(selected_collections)
+        except TypeError:
+            selected_len = 0
+        if selected_collections and selected_len == 1:
             collection = selected_collections[0]
-            if collection.adapter_name:
+            if not isinstance(collection, str) and collection.adapter_name:
                 adapter = get_adapter(collection.adapter_name)
                 if adapter:
                     if collection.list_view_fields:

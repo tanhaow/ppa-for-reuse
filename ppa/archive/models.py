@@ -170,79 +170,33 @@ class Collection(TrackChangesModel):
         values are a dictionary with count and dates.
         """
 
-        # Use simple facet query since pivot with stats is complex
+        # NOTE: if we *only* want counts, could just do a regular facet
         try:
-            from parasolr.django import SolrClient
-            import requests
+            from parasolr.django import SolrQuerySet
 
-            solr = SolrClient()
-            # Build full Solr URL with core name
-            solr_url = f"{solr.solr_url.rstrip('/')}/ppa/select"
-
-            # Query Solr directly using requests for facet counts
-            response = requests.get(
-                solr_url,
-                params={
-                    "q": "*:*",
-                    "rows": 0,
-                    "facet": "true",
-                    "facet.field": "collections_str",
-                    "facet.limit": -1,
-                    "wt": "json",
-                },
+            sqs = (
+                SolrQuerySet()
+                .stats("{!tag=piv1 min=true max=true}pub_date")
+                .facet(pivot="{!stats=piv1}collections_exact")
             )
-
-            if response.status_code != 200:
-                logger.error(f"Solr query failed with status {response.status_code}")
-                return {}
-
-            data = response.json()
+            facet_pivot = sqs.get_facets().facet_pivot
+            # simplify the pivot stat data for display
             stats = {}
-
-            facet_fields = data.get("facet_counts", {}).get("facet_fields", {})
-            collections_facets = facet_fields.get("collections_str", [])
-
-            # Facet results come as alternating name/count pairs
-            for i in range(0, len(collections_facets), 2):
-                if i + 1 < len(collections_facets):
-                    collection_name = collections_facets[i]
-                    count = collections_facets[i + 1]
-
-                    # Get date range for this collection
-                    stats_response = requests.get(
-                        solr_url,
-                        params={
-                            "q": f'collections_str:"{collection_name}"',
-                            "rows": 0,
-                            "stats": "true",
-                            "stats.field": "pub_date",
-                            "wt": "json",
-                        },
-                    )
-
-                    if stats_response.status_code == 200:
-                        stats_data = stats_response.json()
-                        pub_date_stats = (
-                            stats_data.get("stats", {}).get("stats_fields", {}).get("pub_date", {})
-                        )
-                        min_date = pub_date_stats.get("min", 0)
-                        max_date = pub_date_stats.get("max", 0)
-
-                        stats[collection_name] = {
-                            "count": count,
-                            "dates": f"{int(min_date)}–{int(max_date)}"
-                            if min_date != max_date
-                            else f"{int(min_date or 0)}",
-                        }
-                    else:
-                        # If stats query fails, just use count without dates
-                        stats[collection_name] = {"count": count, "dates": ""}
-
+            for collection in facet_pivot.collections_exact:
+                pub_date_stats = collection.stats.stats_fields.pub_date
+                stats[collection.value] = {
+                    "count": collection.count,
+                    "dates": "%(min)d–%(max)d" % pub_date_stats
+                    if pub_date_stats.max != pub_date_stats.min
+                    else "%d" % (pub_date_stats.min or 0,),
+                }
             return stats
         except Exception:
             # If Solr is unreachable or any Solr-related error occurs, log and
             # return empty stats so the site can still render in development.
-            logger.exception("Unable to fetch collection stats from Solr; returning empty stats")
+            logger.exception(
+                "Unable to fetch collection stats from Solr; returning empty stats"
+            )
             return {}
 
 

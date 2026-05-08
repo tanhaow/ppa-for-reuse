@@ -60,9 +60,9 @@ class TestSearchForm(TestCase):
         defaults = SearchForm.defaults()
         assert defaults["sort"] == "title_asc"
         # all collections should be selected, since none are set to exclude
-        assert defaults["collections"] == [
-            ModelMultipleChoiceFieldWithEmpty.EMPTY_ID
-        ] + list(Collection.objects.all().values_list("id", flat=True))
+        assert defaults["collections"] == [ModelMultipleChoiceFieldWithEmpty.EMPTY_ID] + list(
+            Collection.objects.all().values_list("id", flat=True)
+        )
 
         Collection.objects.filter(name="empty").update(exclude=True)
         defaults = SearchForm.defaults()
@@ -117,9 +117,7 @@ class TestSearchForm(TestCase):
         assert cache.get(searchform.PUBDATE_CACHE_KEY)
 
         # cache value should be used even if db changes
-        DigitizedWork.objects.create(
-            title="OldProsody", source_id="testppa3", pub_date=1523
-        )
+        DigitizedWork.objects.create(title="OldProsody", source_id="testppa3", pub_date=1523)
         assert searchform.pub_date_minmax() == expected
 
     def test_has_keyword_query(self):
@@ -132,9 +130,7 @@ class TestSearchForm(TestCase):
         assert SearchForm().has_keyword_query({"title": "elocution"})
         assert SearchForm().has_keyword_query({"author": "bell"})
         # multiple
-        assert SearchForm().has_keyword_query(
-            {"query": "reading", "title": "elocution"}
-        )
+        assert SearchForm().has_keyword_query({"query": "reading", "title": "elocution"})
 
     def test_clean_quotes(self):
         form = SearchForm()
@@ -218,14 +214,12 @@ class TestRadioWithDisabled(TestCase):
         rendered = self.form.as_p()
         # no is disabled
         self.assertInHTML(
-            '<input type="radio" name="yes_no" value="disabled" '
-            'required id="id_yes_no_0_1" />',
+            '<input type="radio" name="yes_no" value="disabled" ' 'required id="id_yes_no_0_1" />',
             rendered,
         )
         # yes is not disabled
         self.assertInHTML(
-            '<input type="radio" name="yes_no" value="yes" '
-            'required id="id_yes_no_1" />',
+            '<input type="radio" name="yes_no" value="yes" ' 'required id="id_yes_no_1" />',
             rendered,
         )
 
@@ -243,9 +237,7 @@ class TestModelMultipleChoiceFieldWithEmpty(TestCase):
 
         # empty id + valid pk = should return empty label + collection
         coll1 = Collection.objects.first()
-        cleaned_values = collections.clean(
-            [ModelMultipleChoiceFieldWithEmpty.EMPTY_ID, coll1.pk]
-        )
+        cleaned_values = collections.clean([ModelMultipleChoiceFieldWithEmpty.EMPTY_ID, coll1.pk])
         assert collections.EMPTY_VALUE in cleaned_values
         assert coll1 in cleaned_values
 
@@ -262,9 +254,7 @@ class TestImportForm(TestCase):
     def test_get_hathi_ids(self):
         # list of input lines, some with whitespace and some empty
         test_ids = ["one", " two ", "three", "", " ", " "]
-        add_form = ImportForm(
-            {"source_ids": "\n".join(test_ids), "source": DigitizedWork.HATHI}
-        )
+        add_form = ImportForm({"source_ids": "\n".join(test_ids), "source": DigitizedWork.HATHI})
         assert add_form.is_valid()
         expected_ids = [line.strip() for line in test_ids if line.strip()]
         assert add_form.get_source_ids() == expected_ids

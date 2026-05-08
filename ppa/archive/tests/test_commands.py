@@ -44,6 +44,11 @@ def ht_pairtree(request):
 
 @pytest.mark.usefixtures("ht_pairtree")
 class TestHathiImportCommand(TestCase):
+    def setUp(self):
+        # enable_hathi switch required for hathi_import command and HathiImporter
+        from waffle.models import Switch
+        Switch.objects.update_or_create(name="enable_hathi", defaults={"active": True})
+
     @patch("ppa.archive.management.commands.hathi_import.pairtree_client")
     def test_initialize_pairtrees(self, mock_pairtree_client):
         cmd = hathi_import.Command()

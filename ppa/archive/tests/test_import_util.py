@@ -24,6 +24,11 @@ class TestDigitizedWorkImporter:
 class TestHathiImporter(TestCase):
     fixtures = ["sample_digitized_works"]
 
+    def setUp(self):
+        # enable_hathi switch required for HathiImporter.add_item_prep
+        from waffle.models import Switch
+        Switch.objects.update_or_create(name="enable_hathi", defaults={"active": True})
+
     def test_filter_existing_ids(self):
         digwork_ids = DigitizedWork.objects.values_list("source_id", flat=True)
 

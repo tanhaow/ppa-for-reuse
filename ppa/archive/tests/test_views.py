@@ -816,20 +816,21 @@ class TestDigitizedWorkListRequest(TestCase):
     def test_relevance_sort_enabled(self):
         # - check that a query allows relevance as sort order toggle in form
         response = self.client.get(self.url, {"query": "foo", "sort": "title_asc"})
-        enabled_input = '<div class="item " data-value="relevance">Relevance</div>'
-        self.assertContains(response, enabled_input, html=True)
+        # relevance option should be enabled (not disabled) when there is a query
+        enabled_input = '<option value="relevance"'
+        disabled_input = '<option value="relevance"\n                \n                disabled'
+        self.assertContains(response, enabled_input)
+        self.assertNotContains(response, disabled_input)
         response = self.client.get(self.url, {"title": "foo", "sort": "title_asc"})
-        self.assertContains(response, enabled_input, html=True)
+        self.assertContains(response, enabled_input)
+        self.assertNotContains(response, disabled_input)
         response = self.client.get(self.url, {"author": "foo", "sort": "title_asc"})
-        self.assertContains(response, enabled_input, html=True)
+        self.assertContains(response, enabled_input)
+        self.assertNotContains(response, disabled_input)
         # check that a search that does not have a query disables
         # relevance as a sort order option
         response = self.client.get(self.url, {"sort": "title_asc"})
-        self.assertContains(
-            response,
-            '<div class="item disabled" data-value="relevance">Relevance</div>',
-            html=True,
-        )
+        self.assertContains(response, disabled_input)
 
     def test_default_sort(self):
         # default sort should be title if no keyword search and no sort specified

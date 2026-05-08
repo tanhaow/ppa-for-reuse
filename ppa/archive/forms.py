@@ -276,11 +276,11 @@ class SearchForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"disabled": True}),
     )
     # fields to request a facet from solr
-    facet_fields = ["collections_str"]
+    facet_fields = ["collections_exact"]
     range_facets = ["pub_date"]
 
     # mapping of solr fields to form input
-    solr_facet_fields = {"collections_str": "collections"}
+    solr_facet_fields = {"collections_exact": "collections"}
 
     @staticmethod
     def defaults():

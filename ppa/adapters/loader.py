@@ -30,6 +30,7 @@ class Adapter:
     source_path: str
     display_fields: Optional[Dict] = None
     frontend: Optional[AdapterFrontend] = None
+    supported_languages: Optional[List[str]] = None
 
 
 _ADAPTER_CACHE: Dict[str, Adapter] = {}
@@ -69,6 +70,7 @@ def load_adapter(path_or_name: str) -> Adapter:
     templates_path = str(adapter_dir / templates_dir)
     solr_schema = data.get("solr_schema")
     display_fields = data.get("display_fields")
+    supported_languages = data.get("supported_languages") or None
 
     # Parse optional frontend config
     frontend = None
@@ -89,6 +91,7 @@ def load_adapter(path_or_name: str) -> Adapter:
         source_path=str(adapter_dir),
         display_fields=display_fields,
         frontend=frontend,
+        supported_languages=supported_languages,
     )
 
 
