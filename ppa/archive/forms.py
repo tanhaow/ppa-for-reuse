@@ -31,9 +31,7 @@ class SelectDisabledMixin(object):
     """
 
     # Using a solution at https://djangosnippets.org/snippets/2453/
-    def create_option(
-        self, name, value, label, selected, index, subindex=None, attrs=None
-    ):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
         """Overide option creation to optionally disable specified values"""
         disabled = None
 
@@ -64,9 +62,7 @@ class SelectWithDisabled(SelectDisabledMixin, forms.Select):
     """
 
 
-class CheckboxSelectMultipleWithDisabled(
-    SelectDisabledMixin, forms.CheckboxSelectMultiple
-):
+class CheckboxSelectMultipleWithDisabled(SelectDisabledMixin, forms.CheckboxSelectMultiple):
     """
     Subclass of :class:`django.forms.CheckboxSelectMultiple` with option to mark
     a choice as disabled.
@@ -74,12 +70,8 @@ class CheckboxSelectMultipleWithDisabled(
 
 
 class CollectionCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
-    def create_option(
-        self, name, value, label, selected, index, subindex=None, attrs=None
-    ):
-        option = super().create_option(
-            name, value, label, selected, index, subindex, attrs
-        )
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
         if value and value.instance.digwork_count == 0:
             option["attrs"]["disabled"] = "disabled"
         return option
@@ -158,9 +150,7 @@ class RangeField(forms.MultiValueField):
         # if both values are set and the first is greater than the second,
         # raise a validation error
         if all(data_list) and len(data_list) == 2 and data_list[0] > data_list[1]:
-            raise ValidationError(
-                "Invalid range (%s - %s)" % (data_list[0], data_list[1])
-            )
+            raise ValidationError("Invalid range (%s - %s)" % (data_list[0], data_list[1]))
         return self.widget.sep.join(["%d" % val if val else "" for val in data_list])
 
 
@@ -256,17 +246,13 @@ class SearchForm(forms.Form):
     pub_date = RangeField(
         label="Publication Date",
         required=False,
-        widget=RangeWidget(
-            attrs={"size": 4, "title": "publication date", "_inline": True}
-        ),
+        widget=RangeWidget(attrs={"size": 4, "title": "publication date", "_inline": True}),
     )
 
     #: hidden input to track cluster id, for searching within reprint/editions
     cluster = forms.CharField(widget=forms.HiddenInput(), required=False)
 
-    sort = forms.ChoiceField(
-        widget=SelectWithDisabled, choices=SORT_CHOICES, required=False
-    )
+    sort = forms.ChoiceField(widget=SelectWithDisabled, choices=SORT_CHOICES, required=False)
 
     # booleans
     earliest_only = forms.BooleanField(
@@ -290,11 +276,11 @@ class SearchForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"disabled": True}),
     )
     # fields to request a facet from solr
-    facet_fields = ["collections_exact"]
+    facet_fields = ["collections_str"]
     range_facets = ["pub_date"]
 
     # mapping of solr fields to form input
-    solr_facet_fields = {"collections_exact": "collections"}
+    solr_facet_fields = {"collections_str": "collections"}
 
     @staticmethod
     def defaults():
@@ -304,9 +290,7 @@ class SearchForm(forms.Form):
             "sort": "title_asc",
             # always include uncategorized collections; no harm if not present
             "collections": [ModelMultipleChoiceFieldWithEmpty.EMPTY_ID]
-            + list(
-                Collection.objects.filter(exclude=False).values_list("id", flat=True)
-            ),
+            + list(Collection.objects.filter(exclude=False).values_list("id", flat=True)),
         }
 
     def __init__(self, data=None, *args, **kwargs):
@@ -316,10 +300,8 @@ class SearchForm(forms.Form):
         super().__init__(data=data, *args, **kwargs)
 
         pubdate_range = self.pub_date_minmax()
-        self.pubdate_validation_msg = (
-            "Enter sequential years between {} and {}.".format(
-                pubdate_range[0], pubdate_range[1]
-            )
+        self.pubdate_validation_msg = "Enter sequential years between {} and {}.".format(
+            pubdate_range[0], pubdate_range[1]
         )
         # because pubdate is a multifield/multiwidget, access the widgets
         # under the multiwidgets
@@ -345,9 +327,7 @@ class SearchForm(forms.Form):
 
     def has_keyword_query(self, data):
         """check if any of the keyword search fields have search terms"""
-        return any(
-            data.get(query_field, None) for query_field in ["query", "title", "author"]
-        )
+        return any(data.get(query_field, None) for query_field in ["query", "title", "author"])
 
     def get_solr_sort_field(self, sort=None):
         """
@@ -382,7 +362,8 @@ class SearchForm(forms.Form):
             # currently the only configured facet field
             if form_field == "collections":
                 self.fields["collections"].widget
-                facet_dict = facets[facet_field]
+                # Handle missing facet fields gracefully (e.g., when no documents have that field)
+                facet_dict = facets.get(facet_field, {})
                 solr_collections = facet_dict.keys()
 
                 # construct updated choice list
@@ -500,8 +481,7 @@ class AddToCollectionForm(forms.Form):
     collections = forms.ModelMultipleChoiceField(
         required=True,
         queryset=Collection.objects.all().order_by("name"),
-        help_text="Hold down ctrl or command key (on MacOS) to select "
-        "multiple collections.",
+        help_text="Hold down ctrl or command key (on MacOS) to select " "multiple collections.",
     )
 
 
@@ -534,7 +514,5 @@ class ImportForm(forms.Form):
         """Get list of ids from valid form input. Splits on newlines,
         strips whitespace, and ignores empty lines."""
         return [
-            line.strip()
-            for line in self.cleaned_data["source_ids"].split("\n")
-            if line.strip()
+            line.strip() for line in self.cleaned_data["source_ids"].split("\n") if line.strip()
         ]

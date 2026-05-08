@@ -10,7 +10,7 @@ import progressbar
 from django.core.management.base import BaseCommand
 from django.db import models
 from django.template.defaultfilters import pluralize
-from parasolr.django import SolrClient, SolrQuerySet
+from ppa.solr_factory import SolrClient, SolrQuerySet
 from multiprocess import Process, JoinableQueue, cpu_count
 
 from ppa.archive.models import DigitizedWork, Page
@@ -223,9 +223,7 @@ class Command(BaseCommand):
         # (need at least 1 page data process, no matter what was specified)
         self.data_feeders = []
         for i in range(max(1, kwargs["processes"] - 1)):
-            process = Process(
-                target=page_index_data, args=(self.work_q, self.page_data_q)
-            )
+            process = Process(target=page_index_data, args=(self.work_q, self.page_data_q))
             process.start()
             self.data_feeders.append(process)
 
@@ -254,12 +252,8 @@ class Command(BaseCommand):
         if self.verbosity >= self.v_normal:
             item_totals = []
             for item_type, total in self.get_solr_totals().items():
-                item_totals.append(
-                    "%d %s%s" % (total, item_type, "" if total == 1 else "s")
-                )
-            self.stdout.write(
-                "\nItems in Solr by item type: %s" % (", ".join(item_totals))
-            )
+                item_totals.append("%d %s%s" % (total, item_type, "" if total == 1 else "s"))
+            self.stdout.write("\nItems in Solr by item type: %s" % (", ".join(item_totals)))
         return
 
     def end_processes(self):
@@ -304,10 +298,7 @@ class Command(BaseCommand):
         between the database count and the number of pages indexed in Solr.
         """
         facets = (
-            PageSearchQuerySet()
-            .filter(item_type="page")
-            .facet("group_id", limit=-1)
-            .get_facets()
+            PageSearchQuerySet().filter(item_type="page").facet("group_id", limit=-1).get_facets()
         )
         mismatches = {}
         pages_per_work = facets.facet_fields["group_id"]
@@ -321,9 +312,7 @@ class Command(BaseCommand):
                 # warn about the missing page count
                 if self.verbosity >= self.v_normal:
                     self.stdout.write(
-                        self.style.WARNING(
-                            f"Warning: {digwork} page count is not set in database"
-                        )
+                        self.style.WARNING(f"Warning: {digwork} page count is not set in database")
                     )
 
             elif digwork.page_count != solr_page_count:

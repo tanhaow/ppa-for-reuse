@@ -68,8 +68,7 @@ class Command(BaseCommand):
             self.stats["skipped"] += len(htimporter.existing_ids)
             if self.verbosity >= self.v_normal:
                 self.stdout.write(
-                    "Skipping ids already present: %s"
-                    % ", ".join(htimporter.existing_ids.keys())
+                    "Skipping ids already present: %s" % ", ".join(htimporter.existing_ids.keys())
                 )
 
         # add records for all remaining ids
@@ -89,9 +88,7 @@ class Command(BaseCommand):
 
         # get totals for added works & pages
         self.stats["created"] = len(htimporter.imported_works)
-        self.stats["pages"] = sum(
-            digwork.page_count for digwork in htimporter.imported_works
-        )
+        self.stats["pages"] = sum(digwork.page_count for digwork in htimporter.imported_works)
 
         # index works and pages for newly added items
         htimporter.index()
@@ -120,9 +117,7 @@ class Command(BaseCommand):
         if self.options["file"]:
             with open(self.options["file"]) as idfile:
                 # add all non-empty lines with whitespace removed
-                htids.extend(
-                    [line.strip() for line in idfile.readlines() if line.strip()]
-                )
+                htids.extend([line.strip() for line in idfile.readlines() if line.strip()])
 
         self.stats["total"] = len(htids)
         return htids

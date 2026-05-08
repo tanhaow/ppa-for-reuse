@@ -76,7 +76,7 @@ class Command(BaseCommand):
                 content_type=ContentType.objects.get_for_model(EditorialIndexPage),
             )
 
-        ## create collections page
+        # create collections page
         collections = CollectionPage.objects.first()
         if not collections:
             collections = CollectionPage.objects.create(

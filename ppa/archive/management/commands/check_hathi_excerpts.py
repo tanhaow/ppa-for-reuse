@@ -94,10 +94,7 @@ class Command(BaseCommand):  # pragma: no cover
                 # some mets records don't have labels
                 # or, label attribute may be present but empty
                 # do we need to check if all pages are missing labels?
-                if (
-                    excerpt_first_page["label"] is None
-                    or excerpt_first_page["label"].strip() == ""
-                ):
+                if excerpt_first_page["label"] is None or excerpt_first_page["label"].strip() == "":
                     # add a note that mets doesn't have labels, stop processing
                     info["notes"] = "no page label in METS structmap"
                     csvwriter.writerow(info)
@@ -110,9 +107,7 @@ class Command(BaseCommand):  # pragma: no cover
                     # if they don't match, can we calculate the offset?
                     # (only works for numeric page labels)
                     try:
-                        diff = int(digwork.first_page_original) - int(
-                            excerpt_first_page["label"]
-                        )
+                        diff = int(digwork.first_page_original) - int(excerpt_first_page["label"])
                         # calculate the expected new digital page range
                         # - apply the difference to each number in range,
                         #   since we do have some discontinuous ranges
@@ -120,9 +115,7 @@ class Command(BaseCommand):  # pragma: no cover
                         #   page range format (1-3 or 1-3,5)
                         new_range = [n + diff for n in digwork.page_span]
                         info["pages_digital_corrected"] = intspan(new_range)
-                        info["new_hathi_start"] = hathi_page_url(
-                            digwork.source_id, new_range[0]
-                        )
+                        info["new_hathi_start"] = hathi_page_url(digwork.source_id, new_range[0])
                     except ValueError as err:
                         info["notes"] = "could not calculate page offset (%s)" % err
 

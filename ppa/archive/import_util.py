@@ -80,9 +80,7 @@ class DigitizedWorkImporter:
         )
 
         # create initial results dict, marking any skipped ids
-        self.results = OrderedDict(
-            (id, self.SKIPPED) for id in self.existing_ids.keys()
-        )
+        self.results = OrderedDict((id, self.SKIPPED) for id in self.existing_ids.keys())
 
         # filter to ids that are not already present in the database
         self.source_ids = set(self.source_ids) - set(self.existing_ids.keys())
@@ -197,9 +195,7 @@ class HathiImporter(DigitizedWorkImporter):
             if output_dir is None:
                 raise ValueError("output_dir is required when rsync_output is enabled")
             elif not os.path.isdir(output_dir):
-                raise ValueError(
-                    f"rsync output dir {output_dir} is not an existing directory"
-                )
+                raise ValueError(f"rsync output dir {output_dir} is not an existing directory")
 
         self.output_dir = output_dir
 
@@ -334,6 +330,13 @@ class HathiImporter(DigitizedWorkImporter):
         :params user: optional user to be included in log entry message
 
         """
+        from ppa.flags import is_flag_enabled
+
+        if not is_flag_enabled("ENABLE_HATHI"):
+            raise RuntimeError(
+                "Hathi functionality is disabled (ENABLE_HATHI=False). "
+                "Enable in local_settings.py or via waffle switch to use HathiImporter."
+            )
         # initialize a bibliographic api client to use the same
         # session when adding multiple items
         self.bib_api = hathi.HathiBibliographicAPI()
@@ -423,9 +426,7 @@ class GaleImporter(DigitizedWorkImporter):
         # disconnect indexing signal handler before adding new content
         IndexableSignalHandler.disconnect()
 
-    def import_digitizedwork(
-        self, gale_id, log_msg_src="", user=None, collections=None, **kwargs
-    ):
+    def import_digitizedwork(self, gale_id, log_msg_src="", user=None, collections=None, **kwargs):
         """Import a single work into the database.
         Retrieves bibliographic data from Gale API."""
         # NOTE: significant overlap with similar method in import script

@@ -34,6 +34,4 @@ DEBUG = False
 ALLOWED_HOSTS = ["*"]
 
 # use a fake webpack loader to ignore missing assets for unit tests
-WEBPACK_LOADER = {
-    "DEFAULT": {"LOADER_CLASS": "webpack_loader.loaders.FakeWebpackLoader"}
-}
+WEBPACK_LOADER = {"DEFAULT": {"LOADER_CLASS": "webpack_loader.loaders.FakeWebpackLoader"}}

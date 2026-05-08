@@ -37,9 +37,7 @@ class Command(BaseCommand):
     verbosity = v_normal
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "csv", type=str, help="CSV file with EEBO-TCP items to import."
-        )
+        parser.add_argument("csv", type=str, help="CSV file with EEBO-TCP items to import.")
 
     def handle(self, *args, **kwargs):
         self.verbosity = kwargs.get("verbosity", self.v_normal)
@@ -49,14 +47,10 @@ class Command(BaseCommand):
 
         # make sure eebo data path is configured in django settings
         if not getattr(settings, "EEBO_DATA", None):
-            raise CommandError(
-                "Path for EEBO_DATA must be configured in Django settings"
-            )
+            raise CommandError("Path for EEBO_DATA must be configured in Django settings")
         self.eebo_data_path = Path(settings.EEBO_DATA)
         if not self.eebo_data_path.exists():
-            raise CommandError(
-                f"EEBO_DATA directory {self.eebo_data_path} does not exist"
-            )
+            raise CommandError(f"EEBO_DATA directory {self.eebo_data_path} does not exist")
 
         to_import = self.load_csv(kwargs["csv"])
         # currently the CSV only specifiec OB, no other collections

@@ -89,6 +89,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):
+        # guard: allow disabling Hathi functionality for generalized deployments
+        from ppa.flags import is_flag_enabled
+
+        if not is_flag_enabled("ENABLE_HATHI"):
+            raise CommandError(
+                "Hathi functionality is disabled (ENABLE_HATHI=False). "
+                "Enable in local_settings.py or via waffle switch to run this command."
+            )
         # disconnect signal handler for on-demand indexing, for efficiency
         # (index in bulk after an update, not one at a time)
         IndexableSignalHandler.disconnect()
@@ -183,9 +191,7 @@ class Command(BaseCommand):
         # if the configured directory does not exist or is not
         # a directory, bail out
         if not os.path.isdir(settings.HATHI_DATA):
-            raise CommandError(
-                "Configuration error for HATHI_DATA dir (%s)" % settings.HATHI_DATA
-            )
+            raise CommandError("Configuration error for HATHI_DATA dir (%s)" % settings.HATHI_DATA)
 
         # HathiTrust data is constructed with instutition short name
         # with pairtree root underneath each
@@ -197,12 +203,8 @@ class Command(BaseCommand):
                 # may be in there, and so forth.
                 if os.path.isdir(ht_data_dir):
                     prefix = os.path.basename(ht_data_dir)
-                    logger.debug(
-                        f"Initializing pair tree in ({ht_data_dir}) [prefix={prefix}]"
-                    )
-                    hathi_ptree = pairtree_client.PairtreeStorageClient(
-                        prefix, ht_data_dir
-                    )
+                    logger.debug(f"Initializing pair tree in ({ht_data_dir}) [prefix={prefix}]")
+                    hathi_ptree = pairtree_client.PairtreeStorageClient(prefix, ht_data_dir)
                     # store initialized pairtree client by prefix for later use
                     self.hathi_pairtree[prefix] = hathi_ptree
 
@@ -267,8 +269,7 @@ class Command(BaseCommand):
             # local copy is newer than last source modification date
             if self.verbosity > self.v_normal:
                 self.stdout.write(
-                    "Source record last updated %s, no update needed"
-                    % digwork.updated.date()
+                    "Source record last updated %s, no update needed" % digwork.updated.date()
                 )
             # nothing to do; continue to next item
             self.stats["skipped"] += 1
@@ -277,8 +278,7 @@ class Command(BaseCommand):
             # report if record was changed and update not forced
             if not self.options["update"]:
                 self.stdout.write(
-                    "Source record last updated %s, update needed"
-                    % digwork.updated.date()
+                    "Source record last updated %s, update needed" % digwork.updated.date()
                 )
             # count the update
             self.stats["updated"] += 1

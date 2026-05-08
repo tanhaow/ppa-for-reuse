@@ -103,15 +103,13 @@ class GaleAPI:
         try:
             self.username = settings.GALE_API_USERNAME
         except AttributeError:
-            raise ImproperlyConfigured(
-                "GALE_API_USERNAME configuration is required for Gale API"
-            )
+            raise ImproperlyConfigured("GALE_API_USERNAME configuration is required for Gale API")
 
         # create a request session, for request pooling
         self.session = requests.Session()
         # set a user-agent header, but  preserve requests version information
         headers = {
-            "User-Agent": "ppa-django/%s (%s)"
+            "User-Agent": "ppa-django-reuse/%s (%s)"
             % (ppa_version, self.session.headers["User-Agent"])
         }
         # include technical contact as From header, if set
@@ -120,9 +118,7 @@ class GaleAPI:
             headers["From"] = tech_contact
         self.session.headers.update(headers)
 
-    def _make_request(
-        self, url, params=None, requires_api_key=True, stream=False, retry=0
-    ):
+    def _make_request(self, url, params=None, requires_api_key=True, stream=False, retry=0):
         """Make a GET request with the configured session. Takes a url
         relative to :attr:`api_root`, optional dictionary of parameters for the request,
         and flags to indicate if the request needs an API key, should be streamed,
@@ -304,9 +300,7 @@ class GaleAPI:
 
 def get_marc_storage():
     """return pairtree storage for marc records"""
-    return PairtreeStorageFactory().get_store(
-        store_dir=settings.MARC_DATA, uri_base="info:local/"
-    )
+    return PairtreeStorageFactory().get_store(store_dir=settings.MARC_DATA, uri_base="info:local/")
 
 
 class MARCRecordNotFound(Exception):
@@ -321,10 +315,7 @@ def get_marc_record(marc_id):
         with marc_object.get_bytestream("marc.dat", streamable=True) as marcfile:
             reader = pymarc.MARCReader(marcfile, to_unicode=True, file_encoding="utf-8")
             record = [rec for rec in reader][0]
-            logger.debug(
-                "Loaded MARC record for %s in %.5fs"
-                % (marc_id, time.time() - start_time)
-            )
+            logger.debug("Loaded MARC record for %s in %.5fs" % (marc_id, time.time() - start_time))
     except storage_exceptions.PartNotFoundException:
         raise MARCRecordNotFound(marc_id)
     return record

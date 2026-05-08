@@ -325,10 +325,7 @@ class QuotedPoem(MixedText):
                 # skip unless we are including large gaps or gap extent
                 # is a single letter
                 if outer_parent.tag == P5_TAG.gap:
-                    if not (
-                        include_large_gaps
-                        or "1 letter" in outer_parent.get("extent", "")
-                    ):
+                    if not (include_large_gaps or "1 letter" in outer_parent.get("extent", "")):
                         continue
 
             if text.is_tail and parent.tag in ["PB", P5_TAG.pb]:

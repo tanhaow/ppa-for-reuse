@@ -102,9 +102,7 @@ class Command(BaseCommand):
         # by default, assume we're modifying an existing record
         created = False
         # get a queryset for all works from this source
-        source_works = DigitizedWork.objects.filter(
-            source_id=source_id, source=DigitizedWork.HATHI
-        )
+        source_works = DigitizedWork.objects.filter(source_id=source_id, source=DigitizedWork.HATHI)
         # first look for an existing full work to convert to excerpt
         digwork = source_works.filter(
             item_type=DigitizedWork.FULL,
@@ -124,9 +122,7 @@ class Command(BaseCommand):
         # - required fields
         digwork.item_type = self.item_type[row["Item Type"]]
         digwork.title = row["Title"]
-        digwork.subtitle = (
-            ""  # clear out any existing subtitle; excerpts don't have them
-        )
+        digwork.subtitle = ""  # clear out any existing subtitle; excerpts don't have them
         digwork.sort_title = row["Sort Title"]
         digwork.book_journal = row["Book/Journal Title"]
         # intspan requires commas; allow semicolons in input but convert to commas
@@ -134,9 +130,7 @@ class Command(BaseCommand):
         digwork.record_id = row["Record ID"]
         # - optional fields
         digwork.author = row.get("Author", "")
-        digwork.pub_date = (
-            row.get("Publication Date", "") or None
-        )  # numeric, not string
+        digwork.pub_date = row.get("Publication Date", "") or None  # numeric, not string
         digwork.pub_place = row.get("Publication Place", "")
         digwork.publisher = row.get("Publisher", "")
         digwork.enumcron = row.get("Enumcron", "")
@@ -151,18 +145,14 @@ class Command(BaseCommand):
             # Could trigger parse error if page span is invalid.
             digwork.save()
         except intspan.ParseError as err:
-            self.stderr.write(
-                self.style.WARNING("Error saving %s: %s" % (source_id, err))
-            )
+            self.stderr.write(self.style.WARNING("Error saving %s: %s" % (source_id, err)))
             self.stats["error"] += 1
             return
 
         # set collection membership based on spreadsheet data:
         # collection is a single field with collection names delimited by semicolon
         if row["Collection"]:
-            digwork_collections = [
-                self.collections[coll] for coll in row["Collection"].split(";")
-            ]
+            digwork_collections = [self.collections[coll] for coll in row["Collection"].split(";")]
             if digwork_collections:
                 digwork.collections.set(digwork_collections)
 
@@ -217,9 +207,7 @@ class Command(BaseCommand):
         try:
             with open(path, encoding="utf-8-sig") as csvfile:
                 csvreader = csv.DictReader(csvfile)
-                data = [
-                    row for row in csvreader if any(row.values())
-                ]  # skip blank rows
+                data = [row for row in csvreader if any(row.values())]  # skip blank rows
         except FileNotFoundError:
             raise CommandError("Error loading the specified CSV file: %s" % path)
 
@@ -227,7 +215,5 @@ class Command(BaseCommand):
         csv_key_diff = set(self.csv_required_fields).difference(csv_keys)
         # if any required fields are not present, error and quit
         if csv_key_diff:
-            raise CommandError(
-                "Missing required fields in CSV file: %s" % ", ".join(csv_key_diff)
-            )
+            raise CommandError("Missing required fields in CSV file: %s" % ", ".join(csv_key_diff))
         return data

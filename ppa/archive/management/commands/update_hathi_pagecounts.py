@@ -73,9 +73,7 @@ class Command(BaseCommand):
 
             except storage_exceptions.ObjectNotFoundException:
                 if self.verbosity >= self.v_normal:
-                    self.stderr.write(
-                        self.style.WARNING(f"Pairtree data for {digwork} not found")
-                    )
+                    self.stderr.write(self.style.WARNING(f"Pairtree data for {digwork} not found"))
                 stats["missing_data"] += 1
 
         # report a summary of what was done

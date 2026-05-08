@@ -53,7 +53,7 @@ from datetime import datetime
 
 import orjsonl
 from django.core.management.base import CommandError
-from parasolr.django import SolrQuerySet
+from ppa.solr_factory import SolrQuerySet
 from progressbar import progressbar
 
 
@@ -229,9 +229,7 @@ class Command(index_pages.Command):
             result
             for step in range(0, total, self.batch_size)
             for result in qset[
-                step : (step + self.batch_size)
-                if (step + self.batch_size) < total
-                else total
+                step : (step + self.batch_size) if (step + self.batch_size) < total else total
             ]
         )
 
@@ -249,15 +247,12 @@ class Command(index_pages.Command):
         Returns a generator of dictionaries with work-level metadata.
         """
         # sort by id (index id = source id + first page), to match previous implementation
-        for digwork in DigitizedWork.items_to_index().order_by(
-            "source_id", "pages_orig"
-        ):
+        for digwork in DigitizedWork.items_to_index().order_by("source_id", "pages_orig"):
             # use Solr index data as starting point
             work_data = digwork.index_data()
             # rename index data fields to output field names
             work_data = {
-                self.work_indexdata_rename.get(key, key): val
-                for key, val in work_data.items()
+                self.work_indexdata_rename.get(key, key): val for key, val in work_data.items()
             }
             work_data.update(
                 {
@@ -277,9 +272,7 @@ class Command(index_pages.Command):
 
             # create a new dict based on defined field order; exclude empty values
             work_data = {
-                field: work_data[field]
-                for field in self.work_fields
-                if work_data.get(field)
+                field: work_data[field] for field in self.work_fields if work_data.get(field)
             }
 
             yield work_data
@@ -303,7 +296,7 @@ class Command(index_pages.Command):
             record["collections"] = self.multival_delimiter.join(record["collections"])
             yield record
 
-    ### saving to file
+    # saving to file
     def save_metadata(self):
         """
         Save the work-level metadata as a json file
@@ -329,7 +322,7 @@ class Command(index_pages.Command):
         """
         Save the page-level data as a jsonl file
         """
-        ### save pages
+        # save pages
         if self.is_dry_run:
             # consume the generator
             list(self.iter_pages())
@@ -337,7 +330,7 @@ class Command(index_pages.Command):
             # save to jsonl or jsonl.gz
             orjsonl.save(self.path_pages_json, self.iter_pages())
 
-    ### running script
+    # running script
 
     def set_params(self, *args, **options):
         """
@@ -370,10 +363,7 @@ class Command(index_pages.Command):
         """
         # facet pages on group id and then count unique groups
         facets = (
-            PageSearchQuerySet()
-            .filter(item_type="page")
-            .facet("group_id", limit=-1)
-            .get_facets()
+            PageSearchQuerySet().filter(item_type="page").facet("group_id", limit=-1).get_facets()
         )
         total_solr_page_works = len(facets.facet_fields["group_id"])
         total_works = DigitizedWork.items_to_index().count()

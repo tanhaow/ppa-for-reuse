@@ -52,9 +52,13 @@ class EditorialIndexPage(Page):
                     count=Count(
                         "editorial_editorialpagetag_items",
                         # only count live posts
-                        filter=models.Q(editorial_editorialpagetag_items__content_object__live=True),
+                        filter=models.Q(
+                            editorial_editorialpagetag_items__content_object__live=True
+                        ),
                     )
-                ).filter(count__gt=0).order_by("-count", "name"),
+                )
+                .filter(count__gt=0)
+                .order_by("-count", "name"),
             }
         )
         return context
@@ -155,11 +159,7 @@ class GeneratePdfPanel(Panel):
             url = self.instance.full_url
 
             # disable if unpublished, or has unpublished changes
-            if (
-                not url
-                or not self.instance.live
-                or self.instance.has_unpublished_changes
-            ):
+            if not url or not self.instance.live or self.instance.has_unpublished_changes:
                 url = ""
             context.update({"url": url})
             return context
@@ -167,6 +167,7 @@ class GeneratePdfPanel(Panel):
 
 class EditorialPageTag(TaggedItemBase):
     """Through model for tagging EditorialPage instances"""
+
     content_object = ParentalKey(
         "editorial.EditorialPage", on_delete=models.CASCADE, related_name="tagged_items"
     )

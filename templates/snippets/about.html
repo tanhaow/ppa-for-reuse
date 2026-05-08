@@ -1,7 +1,9 @@
 {% load static %}
 
-<div class="about ui simple item dropdown{% if active == 'about' %} triangle{% endif %}">
-    <div class="text">About</div>
+<div class="about ui simple item dropdown{% if active == 'about' %} triangle{% endif %}{% if mobile %} dropdown{% endif %}"
+     data-nav-target="aboutMenu"
+     data-action="focusin->nav#aboutFocusIn focusout->nav#aboutFocusOut keydown->nav#aboutKeydown{% if mobile %} click->nav#toggleMobileDropdown{% endif %}">
+    <div class="text" data-nav-target="aboutText" tabindex="0">About</div>
     <img class="dropdown icon" src="{% static 'img/icons/RightChevron.svg' %}" alt="">
     <div class="menu submenu">
         {# NOTE: currently relies on editorial not having show_in_menu set #}

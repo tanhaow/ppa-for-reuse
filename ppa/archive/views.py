@@ -65,6 +65,21 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
     # keyword query; assume no search terms unless set
     query = None
 
+    def last_modified(self):
+        """Override to handle when Solr is disabled."""
+        from ppa.flags import is_flag_enabled
+
+        # If Solr is disabled, return None to skip last-modified header
+        if not is_flag_enabled("ENABLE_SOLR_INDEXING"):
+            return None
+
+        # Otherwise, use the parent implementation
+        try:
+            return super().last_modified()
+        except Exception:
+            # If any error occurs, return None
+            return None
+
     def get(self, *args, **kwargs):
         # a bug used to allow aggregation of multiple cluster params,
         # which is not supported; if detected, redirect to archive search
@@ -146,16 +161,16 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
                 if len(collections) < len(self.form.fields["collections"].choices):
                     # add quotes so solr will treat as exact phrase
                     # for multiword collection names
-                    solr_q.work_filter(
-                        collections_exact__in=['"%s"' % c for c in collections]
-                    )
+                    # Use collections_str instead of collections_exact
+                    # (which doesn't exist in default schema)
+                    solr_q.work_filter(collections_str__in=['"%s"' % c for c in collections])
 
             # For collection exclusion logic to work properly, if no
             # collections are selected, no items should be returned.
             # This query should return no items but still provide facet
             # data to populate the collection filters on the form properly.
             else:
-                solr_q.work_filter(collections_exact__exists=False)
+                solr_q.work_filter(collections_str__exists=False)
 
             # filter books by title or author if there are search terms
             solr_q.work_title_search(search_opts.get("title", None))
@@ -246,7 +261,23 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
 
         page_groups = facet_ranges = None
 
-        # @NOTE: Here is the logic that may need to change->
+        # Get adapter info based on selected collections
+        from ppa.adapters.loader import get_adapter
+
+        adapter = None
+        adapter_display_fields = None
+        selected_collections = self.form.cleaned_data.get("collections", [])
+
+        # If only one collection is selected, use its adapter
+        if selected_collections and len(selected_collections) == 1:
+            collection = selected_collections[0]
+            if collection.adapter_name:
+                adapter = get_adapter(collection.adapter_name)
+                if adapter:
+                    if collection.list_view_fields:
+                        adapter_display_fields = {"list_view": collection.list_view_fields}
+                    else:
+                        adapter_display_fields = adapter.display_fields
 
         try:
             # catch an error connecting to solr
@@ -259,14 +290,26 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
             page_groups, page_highlights = self.get_pages(solrq)
 
             facet_dict = solrq.get_facets()
-            self.form.set_choices_from_facets(facet_dict.facet_fields)
+            # Handle both dict and object formats for facets (real vs fake Solr)
+            facet_fields = (
+                facet_dict.get("facet_fields", {})
+                if isinstance(facet_dict, dict)
+                else facet_dict.facet_fields
+            )
+            self.form.set_choices_from_facets(facet_fields)
             # needs to be inside try/catch or it will re-trigger any error
             # @NOTE/@TODO: attrdict's as_dict wasn't working here? casting now
-            facet_ranges = dict(facet_dict.facet_ranges)
+            facet_ranges_raw = (
+                facet_dict.get("facet_ranges", {})
+                if isinstance(facet_dict, dict)
+                else facet_dict.facet_ranges
+            )
+            facet_ranges = dict(facet_ranges_raw)
             # facet ranges are used for display; when sending to solr we
             # increase the end bound by one so that year is included;
             # subtract it back so display matches user entered dates
-            facet_ranges["pub_date"]["end"] -= 1
+            if "pub_date" in facet_ranges and "end" in facet_ranges["pub_date"]:
+                facet_ranges["pub_date"]["end"] -= 1
 
         except requests.exceptions.ConnectionError:
             # override object list with an empty list that can be paginated
@@ -297,6 +340,9 @@ class DigitizedWorkListView(AjaxTemplateMixin, SolrLastModifiedMixin, ListView):
                 "source_notes": {
                     sn.get_source_display(): sn.note for sn in SourceNote.objects.all()
                 },
+                # Add adapter context for list view
+                "adapter": adapter,
+                "adapter_display_fields": adapter_display_fields,
             }
         )
         return context
@@ -329,9 +375,7 @@ class DigitizedWorkDetailView(AjaxTemplateMixin, SolrLastModifiedMixin, DetailVi
 
     def get_queryset(self):
         # get default queryset and filter by source id
-        source_qs = (
-            super().get_queryset().filter(source_id=self.kwargs.get("source_id"))
-        )
+        source_qs = super().get_queryset().filter(source_id=self.kwargs.get("source_id"))
         start_page = self.kwargs.get("start_page")
         # if start page is specified, filter to get the correct excerpt
         if start_page:
@@ -384,9 +428,45 @@ class DigitizedWorkDetailView(AjaxTemplateMixin, SolrLastModifiedMixin, DetailVi
         if digwork.is_suppressed:
             return context
 
-        context.update(
-            {"page_title": digwork.title, "page_description": digwork.public_notes}
-        )
+        # Get work-specific adapter based on collection parameter or work's collections
+        from ppa.adapters.loader import get_adapters_for_work, get_adapter
+
+        collection_id = self.request.GET.get("collection")
+        work_adapter = None
+        current_collection = None
+
+        if collection_id:
+            # User came from a specific collection page
+            try:
+                from ppa.archive.models import Collection
+
+                collection = Collection.objects.get(id=collection_id)
+                if collection in digwork.collections.all() and collection.adapter_name:
+                    # Use this collection's adapter
+                    work_adapter = get_adapter(collection.adapter_name)
+                    current_collection = collection
+            except Collection.DoesNotExist:
+                pass
+
+        # If no collection parameter or adapter not found, show all adapter fields
+        if not work_adapter:
+            adapters = get_adapters_for_work(digwork)
+            if adapters:
+                # Multiple adapters: show all fields grouped by adapter
+                context["all_adapters"] = adapters
+                context["show_all_fields"] = True
+            else:
+                # No adapters: use global adapter if available
+                work_adapter = get_adapter()
+
+        # Set adapter context
+        if work_adapter:
+            context["adapter"] = work_adapter
+            context["adapter_display_fields"] = work_adapter.display_fields
+        if current_collection:
+            context["current_collection"] = current_collection
+
+        context.update({"page_title": digwork.title, "page_description": digwork.public_notes})
 
         # pull in the query if it exists to use
         query = self.request.GET.get("query", "")
@@ -416,9 +496,7 @@ class DigitizedWorkDetailView(AjaxTemplateMixin, SolrLastModifiedMixin, DetailVi
                 current_page = paginator.page(page_num)
                 paged_result = current_page.object_list
                 # don't try to get highlights if there are no results
-                highlights = (
-                    paged_result.get_highlighting() if paged_result.count() else {}
-                )
+                highlights = paged_result.get_highlighting() if paged_result.count() else {}
 
                 context.update(
                     {
@@ -488,14 +566,10 @@ class AddToCollection(PermissionRequiredMixin, ListView, FormView):
         # get ids from session if there are any
         ids = self.request.session.get("collection-add-ids", [])
         # if somehow a problematic non-pk is pushed, will be ignored in filter
-        digworks = DigitizedWork.objects.filter(id__in=ids if ids else []).order_by(
-            "id"
-        )
+        digworks = DigitizedWork.objects.filter(id__in=ids if ids else []).order_by("id")
         # revise the stored list in session to eliminate any pks
         # that don't exist
-        self.request.session["collection-add-ids"] = list(
-            digworks.values_list("id", flat=True)
-        )
+        self.request.session["collection-add-ids"] = list(digworks.values_list("id", flat=True))
         return digworks
 
     def post(self, request, *args, **kwargs):
@@ -523,9 +597,7 @@ class AddToCollection(PermissionRequiredMixin, ListView, FormView):
             # create a success message to add to message framework stating
             # what happened
             num_works = digitized_works.count()
-            collections = ", ".join(
-                collection.name for collection in data["collections"]
-            )
+            collections = ", ".join(collection.name for collection in data["collections"])
             messages.success(
                 request,
                 "Successfully added %d works to: %s." % (num_works, collections),
@@ -535,9 +607,7 @@ class AddToCollection(PermissionRequiredMixin, ListView, FormView):
         # make form error more descriptive, default to an error re: pks
         if "collections" in form.errors:
             del form.errors["collections"]
-            form.add_error(
-                "collections", ValidationError("Please select at least one Collection")
-            )
+            form.add_error("collections", ValidationError("Please select at least one Collection"))
         # Provide an object list for ListView and emulate CBV calling
         # render_to_response to pass form with errors; just calling super
         # doesn't pass the form with error set

@@ -89,15 +89,10 @@ class Command(BaseCommand):
             raise CommandError("A list of IDs or CSV file for is required for import")
 
         # error handling in case user forgets to specify csv file correctly
-        if (
-            "ids" in kwargs
-            and len(kwargs["ids"]) == 1
-            and kwargs["ids"][0].endswith(".csv")
-        ):
+        if "ids" in kwargs and len(kwargs["ids"]) == 1 and kwargs["ids"][0].endswith(".csv"):
             self.stdout.write(
                 self.style.WARNING(
-                    "%s is not a valid id; did you forget to specify -c/--csv?"
-                    % kwargs["ids"][0]
+                    "%s is not a valid id; did you forget to specify -c/--csv?" % kwargs["ids"][0]
                 )
             )
             return
@@ -136,9 +131,7 @@ class Command(BaseCommand):
         for item in to_import:
             if self.verbosity >= self.v_normal:
                 # include title in output if present, but truncate since many are long
-                self.stdout.write(
-                    " ".join([item["ID"], truncatechars(item.get("Title", ""), 55)])
-                )
+                self.stdout.write(" ".join([item["ID"], truncatechars(item.get("Title", ""), 55)]))
             # send extra details to import method
             # to handle notes and collection membership from CSV
             item_info = item.copy()
@@ -208,9 +201,7 @@ class Command(BaseCommand):
 
         # determine collection membership based on spreadsheet columns
         digwork_collections = [
-            collection
-            for code, collection in self.collections.items()
-            if kwargs.get(code)
+            collection for code, collection in self.collections.items() if kwargs.get(code)
         ]
 
         # translate item type in spreadsheet to digitized work item type code
@@ -231,9 +222,7 @@ class Command(BaseCommand):
         # check for marc record not found error
         if isinstance(self.importer.results[gale_id], MARCRecordNotFound):
             self.stats["no_marc"] += 1
-            self.stderr.write(
-                self.style.WARNING("MARC record not found for %s" % (gale_id))
-            )
+            self.stderr.write(self.style.WARNING("MARC record not found for %s" % (gale_id)))
 
         # if record was created successfully, update stats
         if digwork:

@@ -46,14 +46,10 @@ class Command(BaseCommand):
 
         # make sure eebo data path is configured in django settings
         if not getattr(settings, "EEBO_DATA", None):
-            raise CommandError(
-                "Path for EEBO_DATA must be configured in Django settings"
-            )
+            raise CommandError("Path for EEBO_DATA must be configured in Django settings")
         self.eebo_data_path = pathlib.Path(settings.EEBO_DATA)
         if not self.eebo_data_path.exists():
-            raise CommandError(
-                f"EEBO_DATA directory {self.eebo_data_path} does not exist"
-            )
+            raise CommandError(f"EEBO_DATA directory {self.eebo_data_path} does not exist")
 
         if source == "eebo" or source is None:
             # find all EEBO works in the database
@@ -95,9 +91,7 @@ class Command(BaseCommand):
                     count += 1
                     progbar.update(count)
 
-                self.stdout.write(
-                    f"\nCompleted EEBO-TCP, found {count_qpoems:,} poem excerpts"
-                )
+                self.stdout.write(f"\nCompleted EEBO-TCP, found {count_qpoems:,} poem excerpts")
 
             # ecco-tcp works
             if source == "ecco" or source is None:
@@ -187,9 +181,7 @@ class Command(BaseCommand):
                     page_data = {"content": work_page_contents[gale_page]}
 
                 # if excerpt cannot be found on page text, start/end will be None
-                start_index, end_index = get_excerpt_span(
-                    text_chunk, page_data["content"]
-                )
+                start_index, end_index = get_excerpt_span(text_chunk, page_data["content"])
 
                 notes = []
                 if qpoem.source:
@@ -201,9 +193,7 @@ class Command(BaseCommand):
                 # information; include that in the notes
                 languages = [lg.language for lg in qpoem.line_groups if lg.language]
                 if languages:
-                    notes.append(
-                        f"Language{pluralize(languages)}: {','.join(languages)}"
-                    )
+                    notes.append(f"Language{pluralize(languages)}: {','.join(languages)}")
                 # some documents have marginal notes with a citation
                 for note in qpoem.notes:
                     notes.append(f"{note.label}: {note}")
@@ -257,9 +247,7 @@ def get_excerpt_span(excerpt, page_text):
 
         # escape any special characters in the text like *, (), etc
         # (re.escape does too much because it turns spaces into '\ '')
-        regex_safe_excerpt = (
-            excerpt.replace("*", "\*").replace("(", "\(").replace(")", "\)")
-        )
+        regex_safe_excerpt = excerpt.replace("*", "\*").replace("(", "\(").replace(")", "\)")
         # replace ſ with character set to match any of ſ, s, or f
         regex_safe_excerpt = regex_safe_excerpt.replace("ſ", "[ſfs]")
         # collapse any repeated whitespace to a single whitespace,

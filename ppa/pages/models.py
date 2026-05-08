@@ -33,8 +33,7 @@ class Person(index.Indexed, models.Model):
         null=True,
         blank=True,
         on_delete=models.CASCADE,
-        help_text="Image to use as a profile photo for a person, "
-        "displayed on contributor list.",
+        help_text="Image to use as a profile photo for a person, " "displayed on contributor list.",
     )
     #: identifying URI for a person (VIAF, ORCID iD, personal website, etc.)
     url = models.URLField(
@@ -128,9 +127,7 @@ class HomePage(Page):
         template context."""
         context = super().get_context(request)
 
-        preview_pages = [
-            page for page in [self.page_preview_1, self.page_preview_2] if page
-        ]
+        preview_pages = [page for page in [self.page_preview_1, self.page_preview_2] if page]
 
         # if no preview pages are associated, look for history and prosody
         # by slug url (preliminary urls!)

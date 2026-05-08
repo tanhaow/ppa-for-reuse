@@ -43,7 +43,7 @@ class HathiBaseAPI:
         self.session = requests.Session()
         # set a user-agent header, but  preserve requests version information
         headers = {
-            "User-Agent": "ppa-django/%s (%s)"
+            "User-Agent": "ppa-django-reuse/%s (%s)"
             % (ppa_version, self.session.headers["User-Agent"])
         }
         # include technical contact as From header, if set
@@ -179,11 +179,9 @@ class StructMapPage(_METS):
     #: order label
     orderlabel = xmlmap.StringField("@ORDERLABEL")
     #: identifier for a text or ocr file, from a file pointer
-    text_file_id = xmlmap.StringField(
-        'm:fptr/@FILEID[contains(., "TXT") or contains(. , "OCR")]'
-    )
+    text_file_id = xmlmap.StringField('m:fptr/@FILEID[contains(., "TXT") or contains(. , "OCR")]')
 
-    ## example struct map page
+    # example struct map page
     """<METS:div ORDER="1" LABEL="FRONT_COVER, IMAGE_ON_PAGE, IMPLICIT_PAGE_NUMBER" TYPE="page">
          <METS:fptr FILEID="HTML00000001"/>
          <METS:fptr FILEID="TXT00000001"/>
@@ -308,9 +306,7 @@ class HathiObject:
             self.pairtree_client().delete_object(self.vol_id)
         except storage_exceptions.ObjectNotFoundException:
             # data is already gone; warn, but not an error
-            logger.warning(
-                "Pairtree deletion failed; object not found %s", self.hathi_id
-            )
+            logger.warning("Pairtree deletion failed; object not found %s", self.hathi_id)
 
     def _content_path(self, ext, ptree_client=None):
         """path to zipfile within the hathi contents for this work"""
@@ -324,9 +320,7 @@ class HathiObject:
         if not filepaths:
             # An error has occurred -- there is no zip file here in parts
             raise storage_exceptions.PartNotFoundException
-        return os.path.join(
-            pairtree_obj.id_to_dirpath(), self.content_dir, filepaths[0]
-        )
+        return os.path.join(pairtree_obj.id_to_dirpath(), self.content_dir, filepaths[0])
 
     def zipfile_path(self, ptree_client=None):
         """path to zipfile within the hathi contents for this work"""
@@ -391,8 +385,7 @@ class HathiObject:
                     # they are at the end of the document and don't have any
                     # page content, so log a warning but don't treat as an error
                     logger.warn(
-                        "Indexing %s pages: "
-                        + "%s referenced in METS but not found in zip file",
+                        "Indexing %s pages: " + "%s referenced in METS but not found in zip file",
                         self.hathi_id,
                         pagefilename,
                     )

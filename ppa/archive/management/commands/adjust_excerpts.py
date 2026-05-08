@@ -100,9 +100,7 @@ class Command(hathi_excerpt.Command):
             digwork.save()
             self.stats["updated"] += 1
         except intspan.ParseError as err:
-            self.stderr.write(
-                self.style.WARNING("Error saving %s: %s" % (digwork, err))
-            )
+            self.stderr.write(self.style.WARNING("Error saving %s: %s" % (digwork, err)))
             self.stats["error"] += 1
             return
 

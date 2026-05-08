@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand, CommandError
 from django.template.defaultfilters import pluralize
 
-from ppa.archive.models import Cluster, DigitizedWork, Page
+from ppa.archive.models import Cluster, DigitizedWork
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +56,7 @@ class Command(BaseCommand):
 
             # - find the correct record
             # use an unsaved digitized work to parse the page range for search filter
-            dw_pages = DigitizedWork(
-                pages_digital=row["Pages (digital)"].replace(";", ",")
-            )
+            dw_pages = DigitizedWork(pages_digital=row["Pages (digital)"].replace(";", ","))
             try:
                 digwork = DigitizedWork.objects.get(
                     source_id=row["Source ID"], pages_digital=dw_pages.pages_digital
@@ -73,9 +71,7 @@ class Command(BaseCommand):
                         "%s%s not found"
                         % (
                             row["Source ID"],
-                            " (%s)" % dw_pages.pages_digital
-                            if dw_pages.pages_digital
-                            else "",
+                            " (%s)" % dw_pages.pages_digital if dw_pages.pages_digital else "",
                         )
                     )
                 )
@@ -104,9 +100,7 @@ class Command(BaseCommand):
             # but more efficient to do that with index_pages script
 
         # summarize what was done
-        summary = (
-            "\nUpdated {:,d} record{}; {:,d} not found." + "\nCreated {:,d} cluster{}."
-        )
+        summary = "\nUpdated {:,d} record{}; {:,d} not found." + "\nCreated {:,d} cluster{}."
         summary = summary.format(
             self.stats["updated"],
             pluralize(self.stats["updated"]),

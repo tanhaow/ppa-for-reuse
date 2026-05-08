@@ -48,7 +48,7 @@ class DownloadStats:
             self.thumbnail[action] += 1
         else:
             raise ValueError(f"Unknown image type '{image_type}'")
-    
+
     def log_download(self, image_type: str) -> None:
         self._log_action(image_type, "fetch")
 
@@ -88,6 +88,7 @@ class Command(BaseCommand):
 
     Note: Excerpts cannot be specified individually, only by source (collectively)
     """
+
     help = __doc__
 
     # Interrupt flag to exit gracefully (i.e. between volumes) when a signal is caught
@@ -98,15 +99,14 @@ class Command(BaseCommand):
         """
         Configure additional CLI arguments
         """
-        parser.add_argument(
-            "output_dir",
-            type=Path,
-            help="Top-level output directory"
-        )
+        parser.add_argument("output_dir", type=Path, help="Top-level output directory")
         parser.add_argument(
             "--htids",
             nargs="+",
-            help="Optional list of HathiTrust ids (by default, downloads images for all public HathiTrust volumes)",
+            help=(
+                "Optional list of HathiTrust ids (by default, downloads images "
+                "for all public HathiTrust volumes)"
+            ),
         )
         parser.add_argument(
             "--image-width",
@@ -117,7 +117,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--thumbnail-width",
             type=int,
-            help="Width for thumbnail images in pixels. Must be at most 250 pixels. Default: 250",
+            help=(
+                "Width for thumbnail images in pixels. Must be at most 250 " "pixels. Default: 250"
+            ),
             default=250,
         )
         parser.add_argument(
@@ -126,7 +128,7 @@ class Command(BaseCommand):
             help="Display progress bars to track download progress",
             default=True,
         )
-  
+
     def interrupt_handler(self, signum, frame):
         """
         For handling of SIGINT, as possible. For the first SIGINT, a flag is set
@@ -139,9 +141,10 @@ class Command(BaseCommand):
             signal.signal(signal.SIGINT, signal.SIG_DFL)
             # Set interrupt flag
             self.interrupted = True
-            self.stdout.write(self.style.WARNING(
-                "Command will exit once this volume's image download is "
-                "complete.\nCtrl-C / Interrupt to quit immediately"
+            self.stdout.write(
+                self.style.WARNING(
+                    "Command will exit once this volume's image download is "
+                    "complete.\nCtrl-C / Interrupt to quit immediately"
                 )
             )
 
@@ -160,8 +163,7 @@ class Command(BaseCommand):
             logger.debug("Received 503 status code. Throttling may have occurred")
         return success
 
-
-    def download_volume_images(self, vol_id:str, page_range: Iterable) -> DownloadStats:
+    def download_volume_images(self, vol_id: str, page_range: Iterable) -> DownloadStats:
         """
         For a given volume, download the pages corresponding to the provided page range.
         """
@@ -171,10 +173,10 @@ class Command(BaseCommand):
         # Get volume's thumbnail directory
         thumbnail_dir = vol_dir / "thumbnails"
         thumbnail_dir.mkdir(exist_ok=True)
-            
+
         # Get filename-friendly version of htid
         clean_htid = encode_htid(vol_id)
-            
+
         # Fetch images
         stats = DownloadStats()
         start_time = time.time()
@@ -206,7 +208,6 @@ class Command(BaseCommand):
         page_rate = duration / len(page_range)
         logger.debug(f"{vol_id}: Completed in {duration:.2f}s ({page_rate:.2f} sec/page)")
         return stats
-
 
     def handle(self, *args, **kwargs):
         self.output_dir = kwargs["output_dir"]
@@ -241,7 +242,7 @@ class Command(BaseCommand):
         if not digworks.exists():
             self.stdout.write("No records to download; stopping")
             return
-        
+
         # Bind handler for interrupt signal
         signal.signal(signal.SIGINT, self.interrupt_handler)
 
@@ -253,26 +254,24 @@ class Command(BaseCommand):
         # Initialize progress bar
         if self.show_progress:
             self.progress_bar = tqdm()
-       
+
         overall_stats = DownloadStats()
         for i, digwork in enumerate(digworks):
             # Check if we need to exit early
             if self.interrupted:
                 break
-            
+
             vol_id = digwork.source_id
             # Determine page range
             if digwork.item_type == DigitizedWork.FULL:
-                page_range = range(1, digwork.page_count+1)
+                page_range = range(1, digwork.page_count + 1)
             else:
                 page_range = digwork.page_span
-           
+
             # Update progress bar
             if self.show_progress:
                 self.progress_bar.reset(total=len(page_range))
-                self.progress_bar.set_description(
-                    f"{vol_id} ({i+1}/{n_vols})"
-                )
+                self.progress_bar.set_description(f"{vol_id} ({i+1}/{n_vols})")
 
             # Download volume images & update overall stats
             vol_stats = self.download_volume_images(vol_id, page_range)
