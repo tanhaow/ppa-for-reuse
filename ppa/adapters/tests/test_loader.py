@@ -9,4 +9,4 @@ def test_load_example_adapter():
     adapter_dir = os.path.join(base, "cookbook")
     adapter = load_adapter(adapter_dir)
     assert adapter.name == "cookbook"
-    assert "ingredients" in adapter.field_map
+    assert "cookbook_ingredients" in adapter.field_map
