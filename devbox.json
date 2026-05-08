@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
+  "packages": [
+    "python@3.12",
+    "nodejs@22"
+  ],
+  "shell": {
+    "init_hook": "echo '🚀 Initializing PPA Django Reuse development environment...' && python -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt -r dev-requirements.txt && npm install && echo '✅ Environment ready! Run: devbox run setup'",
+    "scripts": {
+      "setup": "echo '📦 Setting up services and database...' && bash scripts/kill_port.sh 8000 && docker compose -f docker/docker-compose.dev.yml up -d && sleep 5 && bash scripts/setup.sh",
+      "setup:quick": "echo '⚡ Quick setup (skip Solr)...' && bash scripts/kill_port.sh 8000 && docker compose -f docker/docker-compose.dev.yml up -d db && python manage.py migrate && python manage.py setup_site_pages && python manage.py shell -c \"from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('admin', 'admin@example.com', 'admin123') if not User.objects.filter(username='admin').exists() else None\" && echo '✅ Quick setup complete! Run: devbox run dev'",
+      "dev": "bash scripts/kill_port.sh 8000 && python manage.py runserver",
+      "test": "pytest && npm test",
+      "verify": "bash scripts/verify.sh",
+      "clean": "bash scripts/kill_port.sh 8000 && docker compose -f docker/docker-compose.dev.yml down -v && rm -rf .venv node_modules static/js static/css"
+    }
+  },
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "ppa.settings",
+    "DATABASE_URL": "postgresql://ppa:ppa@localhost:5432/ppa",
+    "SOLR_URL": "http://localhost:8983/solr/ppa"
+  }
+}

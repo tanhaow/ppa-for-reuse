@@ -123,7 +123,7 @@
     <field name="label" type="string" multiValued="false" required="false" stored="true"/>
     <field name="last_modified" type="pdate" default="NOW" multiValued="false" required="false" stored="true"/>
     <field name="notes" type="text_en" multiValued="false" required="false" stored="true"/>
-    <field name="order" type="pint" multiValued="false" required="false" stored="true"/>
+    <field name="order" type="pint" multiValued="false" required="false" stored="true" indexed="true"/>
     <field name="pub_date" type="pint" multiValued="false" required="false" stored="true"/>
     <field name="pub_place" type="text_en" multiValued="false" required="false" stored="true"/>
     <field name="publisher" type="text_en" multiValued="false" required="false" stored="true"/>
