@@ -74,9 +74,7 @@ def hathi_page_url(item_id, order):
 
         {% page_url item_id page.order %}
     """
-    return mark_safe(
-        "{}/pt?id={}&view=1up&seq={}".format(HATHI_BASE_URL, item_id, order)
-    )
+    return mark_safe("{}/pt?id={}&view=1up&seq={}".format(HATHI_BASE_URL, item_id, order))
 
 
 @register.simple_tag
@@ -192,9 +190,11 @@ def _add_excerpt_fields(item, existing_data):
             {
                 "spage": first_page,
                 "epage": last_page or first_page,
-                "pages": f"{first_page}-{last_page}"
-                if last_page and last_page != first_page
-                else first_page,
+                "pages": (
+                    f"{first_page}-{last_page}"
+                    if last_page and last_page != first_page
+                    else first_page
+                ),
             }
         )
 
@@ -219,9 +219,11 @@ def _add_article_fields(item, existing_data):
             {
                 "spage": first_page,
                 "epage": last_page or first_page,
-                "pages": f"{first_page}-{last_page}"
-                if last_page and last_page != first_page
-                else first_page,
+                "pages": (
+                    f"{first_page}-{last_page}"
+                    if last_page and last_page != first_page
+                    else first_page
+                ),
             }
         )
 
@@ -281,3 +283,112 @@ def coins_encode(coins_data):
     encoded_title_content = encoded_params.replace("&", "&amp;")
 
     return mark_safe(f'<span class="Z3988" title="{encoded_title_content}"></span>')
+
+
+@register.inclusion_tag("archive/snippets/adapter_field.html")
+def render_adapter_field(item, field_config):
+    """
+    Render a single adapter field based on configuration.
+
+    Args:
+        item: Solr result object or database model instance
+        field_config: Dict with 'field', 'label', 'format', 'source', etc.
+
+    Returns:
+        Context dict with field_name, label, value, has_value
+    """
+    field_name = field_config.get("field")
+    label = field_config.get("label", field_name)
+    source_path = field_config.get("source", field_name)
+
+    # Get value from item
+    value = None
+    if hasattr(item, "get_adapter_field"):
+        value = item.get_adapter_field(source_path)
+    elif isinstance(item, dict):
+        value = item.get(field_name)
+    elif hasattr(item, field_name):
+        value = getattr(item, field_name, None)
+
+    # Format value: always join arrays with comma separator
+    if value and isinstance(value, list):
+        separator = field_config.get("separator", ", ")
+        value = separator.join(str(v) for v in value)
+
+    return {
+        "field_name": field_name,
+        "label": label,
+        "value": value,
+        "has_value": value is not None and value != "",
+        "field_type": field_config.get("type"),
+        "controller": field_config.get("controller"),
+    }
+
+
+@register.inclusion_tag("archive/snippets/adapter_field_table.html")
+def render_adapter_field_table(item, field_config):
+    """
+    Render a single adapter field as a table row based on configuration.
+
+    Args:
+        item: Solr result object or database model instance
+        field_config: Dict with 'field', 'label', 'format', 'source', etc.
+
+    Returns:
+        Context dict with field_name, label, value, has_value
+    """
+    field_name = field_config.get("field")
+    label = field_config.get("label", field_name)
+    source_path = field_config.get("source", field_name)
+
+    # Get value from item
+    value = None
+    if hasattr(item, "get_adapter_field"):
+        # Database object with metadata
+        value = item.get_adapter_field(source_path)
+    elif isinstance(item, dict):
+        # Solr result dictionary
+        value = item.get(field_name)
+    elif hasattr(item, field_name):
+        # Object with attribute
+        value = getattr(item, field_name, None)
+
+    # Format value: always join arrays with comma separator
+    if value and isinstance(value, list):
+        separator = field_config.get("separator", ", ")
+        value = separator.join(str(v) for v in value)
+
+    field_type = field_config.get("type", "")
+    return {
+        "field_name": field_name,
+        "label": label,
+        "value": value,
+        "has_value": value is not None and value != "",
+        "field_type": field_type,
+    }
+
+
+@register.inclusion_tag("archive/snippets/passage_section.html")
+def render_adapter_passage(item, field_config):
+    """Render a passage field as a standalone section."""
+    field_name = field_config.get("field")
+    label = field_config.get("label", field_name)
+    source_path = field_config.get("source", field_name)
+
+    value = None
+    if hasattr(item, "get_adapter_field"):
+        value = item.get_adapter_field(source_path)
+    elif isinstance(item, dict):
+        value = item.get(field_name)
+    elif hasattr(item, field_name):
+        value = getattr(item, field_name, None)
+
+    if value and isinstance(value, list):
+        separator = field_config.get("separator", "\n")
+        value = separator.join(str(v) for v in value)
+
+    return {
+        "label": label,
+        "value": value,
+        "has_value": value is not None and value != "",
+    }

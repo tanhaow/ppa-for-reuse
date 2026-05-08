@@ -25,7 +25,7 @@
     {% include 'archive/snippets/search_form.html' %}
     {% include 'archive/snippets/jump_top.html' with anchor='search' %}
 </section>
-<div class="ajax-container">
+<div class="ajax-container" data-search-target="results">
     {% include 'archive/snippets/results_list.html' %}
 </div>
 {% endblock %}

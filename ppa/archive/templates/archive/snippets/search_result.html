@@ -12,7 +12,12 @@
     {# COinS metadata for Zotero multi-item detection on list pages #}
     {% coins_data item as coins_metadata %}{{ coins_metadata|coins_encode }}
 
+    {# Add collection parameter if filtering by collection #}
+    {% if request.GET.collections %}
+    <a href="{{ detail_url }}?collection={{ request.GET.collections }}{% if query %}&query={{ query }}{% endif %}" class="detail">
+    {% else %}
     <a href="{{ detail_url }}{% if query %}?query={{ query }}{% endif %}" class="detail">
+    {% endif %}
         <div class="brief-result container">
             <div class="title column">
                 <div class="labels">
@@ -70,6 +75,11 @@
                         <dt>Volume</dt>
                         <dd>{{ item.enumcron }}</dd>
                     </div>
+                    {% endif %}
+                    {% if adapter_display_fields.list_view %}
+                        {% for field_config in adapter_display_fields.list_view %}
+                            {% render_adapter_field item field_config %}
+                        {% endfor %}
                     {% endif %}
                     {% if user.is_authenticated %}
                     <div class="score">

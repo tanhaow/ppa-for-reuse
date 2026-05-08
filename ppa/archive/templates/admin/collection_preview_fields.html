@@ -1,0 +1,272 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.preview-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.preview-header h1 {
+    margin: 0;
+}
+
+.btn-back {
+    padding: 10px 20px;
+    background: #6c757d;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+.btn-back:hover {
+    background: #5a6268;
+}
+
+.collection-preview {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.collection-header {
+    background: #417690;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.collection-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.adapter-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.collection-body {
+    padding: 20px;
+}
+
+.field-list {
+    display: grid;
+    gap: 15px;
+}
+
+.field-item {
+    display: flex;
+    align-items: start;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #417690;
+}
+
+.field-number {
+    background: #417690;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.field-details {
+    flex: 1;
+}
+
+.field-name {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.field-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #212529;
+}
+
+.field-source {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.no-fields {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.no-fields-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.no-adapter {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    padding: 15px;
+    border-radius: 6px;
+    color: #856404;
+}
+
+.using-defaults {
+    background: #d1ecf1;
+    border: 1px solid #17a2b8;
+    padding: 10px 15px;
+    border-radius: 6px;
+    color: #0c5460;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.sample-display {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e9ecef;
+    border-radius: 6px;
+}
+
+.sample-display h3 {
+    margin-top: 0;
+    font-size: 14px;
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.sample-work {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.sample-work-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #212529;
+}
+
+.sample-field {
+    display: flex;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.sample-field-label {
+    font-weight: 600;
+    margin-right: 8px;
+    color: #495057;
+}
+
+.sample-field-value {
+    color: #212529;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <div class="preview-header">
+        <h1>{{ title }}</h1>
+        <a href="{% url 'admin:archive_collection_changelist' %}" class="btn-back">← Back to Collections</a>
+    </div>
+
+    {% for data in collections_data %}
+    <div class="collection-preview">
+        <div class="collection-header">
+            <h2>{{ data.collection.name }}</h2>
+            {% if data.adapter %}
+            <span class="adapter-badge">{{ data.adapter.display_name }}</span>
+            {% endif %}
+        </div>
+
+        <div class="collection-body">
+            {% if not data.adapter %}
+                <div class="no-adapter">
+                    <strong>⚠️ No Adapter Configured</strong>
+                    <p>This collection does not have an adapter assigned. No custom fields will be displayed.</p>
+                </div>
+            {% elif not data.fields %}
+                <div class="no-fields">
+                    <div class="no-fields-icon">📋</div>
+                    <p><strong>No Fields Configured</strong></p>
+                    <p>This collection has an adapter but no fields are configured for display.</p>
+                </div>
+            {% else %}
+                {% if not data.collection.list_view_fields %}
+                <div class="using-defaults">
+                    ℹ️ Using adapter default fields (not customized)
+                </div>
+                {% endif %}
+
+                <div class="field-list">
+                    {% for field in data.fields %}
+                    <div class="field-item">
+                        <div class="field-number">{{ forloop.counter }}</div>
+                        <div class="field-details">
+                            <div class="field-name">{{ field.field }}</div>
+                            <div class="field-label">{{ field.label }}</div>
+                            {% if field.source %}
+                            <div class="field-source">Source: {{ field.source }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="sample-display">
+                    <h3>📄 How it will appear in list view:</h3>
+                    <div class="sample-work">
+                        <div class="sample-work-title">Sample Work Title</div>
+                        <div class="sample-field">
+                            <span class="sample-field-label">Author:</span>
+                            <span class="sample-field-value">Sample Author</span>
+                        </div>
+                        <div class="sample-field">
+                            <span class="sample-field-label">Date:</span>
+                            <span class="sample-field-value">2024</span>
+                        </div>
+                        {% for field in data.fields %}
+                        <div class="sample-field">
+                            <span class="sample-field-label">{{ field.label }}:</span>
+                            <span class="sample-field-value">[{{ field.field }}]</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,26 +1,17 @@
 {% load static %}
 
 <div class="sort">
-    <label for="sort">Sort By</label>
-    <div class="ui selection dropdown" id="sort">
-        <img class="chevron icon"
-            src="{% static 'img/icons/RightChevron.svg' %}" alt="">
-        <input type="hidden" name="sort" id="{{ search_form.sort.id_for_label }}">
-        <div class="text">
+    <label for="{{ search_form.sort.id_for_label }}">Sort By</label>
+    <select name="sort" id="{{ search_form.sort.id_for_label }}"
+            data-search-target="sortSelect"
+            data-action="change->search#onSortChange">
         {% for sort in search_form.sort %}
-            {% if sort.data.selected %}
-                {{ sort.choice_label }}
-            {% endif %}
+        <option value="{{ sort.data.value }}"
+                {% if sort.data.selected %}selected{% endif %}
+                {% if sort.data.attrs.disabled %}disabled{% endif %}
+                {% if sort.data.value == "relevance" %}data-search-target="relevanceOption"{% endif %}>
+            {{ sort.choice_label }}
+        </option>
         {% endfor %}
-        </div>
-        <div class="menu">
-            {% for sort in search_form.sort %}
-            <div class="item{% if sort.data.selected %} active{% endif %} {{ sort.data.attrs.disabled }}"
-                data-value="{{ sort.data.value }}">
-                {{ sort.choice_label }}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    <noscript>{{ search_form.sort }}</noscript>
+    </select>
 </div>

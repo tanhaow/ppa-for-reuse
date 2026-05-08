@@ -1,0 +1,104 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.bulk-action-form {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.collection-list {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.collection-list h3 {
+    margin-top: 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.collection-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.collection-list li {
+    padding: 8px;
+    background: white;
+    margin-bottom: 5px;
+    border-radius: 3px;
+    border-left: 3px solid #417690;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.form-actions button,
+.form-actions a {
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #417690;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2e5266;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-action-form">
+    <h1>{{ title }}</h1>
+
+    <div class="collection-list">
+        <h3>Target Collections ({{ collections.count }})</h3>
+        <ul>
+            {% for collection in collections %}
+            <li>{{ collection.name }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <input type="hidden" name="_selected_action" value="{{ request.POST.getlist|join:',' }}">
+
+        <div class="form-actions">
+            <button type="submit" name="apply" class="btn-primary">Copy Configuration</button>
+            <a href="{% url 'admin:archive_collection_changelist' %}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

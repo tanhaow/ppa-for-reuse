@@ -1,5 +1,8 @@
 {% load semanticui humanize static %}
-<form class="ui form{% if error %} error{% endif %}">
+<form class="ui form{% if error %} error{% endif %}"
+      action="{% url 'archive:list' %}"
+      data-controller="search"
+      data-search-target="form">
     <div class="ui vertical stackable grid segment">
         {# include hidden cluster field value for form submission #}
         {{ search_form.cluster }}
@@ -15,30 +18,32 @@
         {% endif %}
 
         <div class="twelve wide column">
-            {% render_field search_form.query %}
+            <div data-search-target="textInput">{% render_field search_form.query %}</div>
             <span class="question-popup" data-html="{{ search_form.QUESTION_POPUP_TEXT }}" data-position="top center">
                 <i class="ui question circle icon"></i>
             </span>
         </div>
-        <div class="twelve wide column advanced">
+        <div class="twelve wide column advanced" data-search-target="advancedColumn">
             <div class="two fields">
-                {% render_field search_form.title %}
-                {% render_field search_form.author %}
+                <div data-search-target="textInput">{% render_field search_form.title %}</div>
+                <div data-search-target="textInput">{% render_field search_form.author %}</div>
             </div>
         </div>
     </div>
-    <div class="ui vertical stackable grid segment advanced">
+    <div class="ui vertical stackable grid segment advanced" data-search-target="advancedSection" style="display:none">
         <div class="four wide column" id="publication">
             {% render_field search_form.pub_date %}
-            <span class="validation">
+            <span class="validation" data-search-target="validation">
                 {{ search_form.pubdate_validation_msg }}
             </span>
-            <button class="clear-selection" type="button">Reset Dates</button>
+            <button class="clear-selection" type="button"
+                    data-action="click->search#clearDates">Reset Dates</button>
         </div>
         <div class="eight wide column" id="histogram">
-            <canvas class="visualization" height="60" width="600"></canvas>
-            <span class="min-date"></span>
-            <span class="max-date"></span>
+            <canvas class="visualization" height="60" width="600"
+                    data-search-target="canvas"></canvas>
+            <span class="min-date" data-search-target="minDate"></span>
+            <span class="max-date" data-search-target="maxDate"></span>
         </div>
     </div>
     <div class="ui vertical stackable basic grid segment">
@@ -49,7 +54,9 @@
                     {% for collection in search_form.collections %}
                     <label class="ui button{% if collection.data.selected %} active{% endif %}">
                         {{ collection.choice_label }}
-                        {{ collection.tag }}
+                        {% with collection.tag as tag %}
+                        {{ tag }}
+                        {% endwith %}
                     </label>
                     {% endfor %}
                     <div class="spacer"></div>
@@ -74,15 +81,16 @@
         {% endcomment %}
     </div>
     <div class="ui vertical basic segment show-advanced">
-        <button type="button">
+        <button type="button" data-search-target="advancedButton"
+                data-action="click->search#toggleAdvancedSearch">
             <img class="dropdown icon" src="{% static 'img/icons/RightChevron.svg' %}" alt="">
             Advanced Search
             <span class="search-active">●</span>
         </button>
     </div>
     <input type="submit" class="sr-only sr-only-focusable" aria-label="submit search">
-    <div class="workscount ui center aligned text container">
-        <p class="count">Displaying {{ paginator.count|intcomma }} digitized work{{ paginator.count|pluralize }}{% if not search_form.cluster.value %} or cluster{{ paginator.count|pluralize }} of works{% endif %}</p>
+    <div class="workscount ui center aligned text container" data-search-target="workscount">
+        <p class="count" data-search-target="count">Displaying {{ paginator.count|intcomma }} digitized work{{ paginator.count|pluralize }}{% if not search_form.cluster.value %} or cluster{{ paginator.count|pluralize }} of works{% endif %}</p>
         <p class="zotero">Work citations can be exported to <a href="https://www.zotero.org/support/getting_stuff_into_your_library">Zotero</a></p>
         <div class="loader">
             <img src="{% static 'img/loader/search-loader.gif' %}" alt="">
@@ -90,7 +98,9 @@
         </div>
     </div>
     <div class="pagination-sort">
-        {% include 'archive/snippets/pagination.html' %}
+        <div data-search-target="paginationTop">
+            {% include 'archive/snippets/pagination.html' %}
+        </div>
         {% include 'archive/snippets/sort.html' %}
     </div>
 </form>

@@ -107,6 +107,37 @@
             </tr>
             {% endif %}
 
+            {# Display adapter fields based on context #}
+            {% if show_all_fields %}
+                {# Show all adapter fields grouped by adapter #}
+                {% for adapter in all_adapters %}
+                    {% if adapter.display_fields.detail_view %}
+                        <tr class="adapter-section">
+                            <th colspan="2" class="adapter-header">
+                                <h3>{{ adapter.display_name }} Fields</h3>
+                            </th>
+                        </tr>
+                        {% for field_config in adapter.display_fields.detail_view %}
+                            {% render_adapter_field_table object field_config %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                {# Show fields from current collection's adapter #}
+                {% if current_collection %}
+                    <tr class="collection-context">
+                        <th colspan="2">
+                            <em>Viewing as: {{ current_collection.name }}</em>
+                        </th>
+                    </tr>
+                {% endif %}
+                {% if adapter_display_fields.detail_view %}
+                    {% for field_config in adapter_display_fields.detail_view %}
+                        {% render_adapter_field_table object field_config %}
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+
             {% if object.source_url %}
             <tr class="source-link">
                 <th scope="row">{{ object.get_source_link_label }}</th>
@@ -160,14 +191,36 @@
     {% endif %}
 
 </section>
+
+{# Render passage fields from adapter #}
+{% if show_all_fields %}
+    {% for adapter in all_adapters %}
+        {% if adapter.display_fields.detail_view %}
+            {% for field_config in adapter.display_fields.detail_view %}
+                {% if field_config.type == "passage" %}
+                    {% render_adapter_passage object field_config %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+{% else %}
+    {% if adapter_display_fields.detail_view %}
+        {% for field_config in adapter_display_fields.detail_view %}
+            {% if field_config.type == "passage" %}
+                {% render_adapter_passage object field_config %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endif %}
+
 {# search within a volume currently only supported for hathi content #}
 {% if object.has_fulltext %}
-<section class="ui basic vertical segment container">
-    <form id="search-within" class="ui form">
+<section class="ui basic vertical segment container" data-controller="search-within">
+    <form id="search-within" class="ui form" data-search-within-target="form">
         <div class="ui vertical basic grid segment">
             <legend class="sr-only">text search fields</legend>
             <div class="twelve wide column">
-                {% render_field search_form.query %}
+                <div data-search-within-target="queryInput">{% render_field search_form.query %}</div>
                 <span class="question-popup" data-html="{{ search_form.QUESTION_POPUP_TEXT }}" data-position="top center">
                     <i class="ui question circle icon"></i>
                 </span>
@@ -176,10 +229,11 @@
         </div>
     </form>
     {% include 'archive/snippets/jump_top.html' with anchor='digitized-work' %}
-</section>
+
   {# display matching pages with highlighted text if there is a search active #}
-  <output class="ajax-container" form="search-within">
+  <output class="ajax-container" form="search-within" data-search-within-target="output">
     {% include 'archive/snippets/results_within_list.html' %}
   </output>
+</section>
 {% endif %}
 {% endblock %}

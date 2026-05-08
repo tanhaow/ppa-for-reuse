@@ -1,8 +1,11 @@
 {% load static wagtailcore_tags %}
 
+<div data-controller="nav">
+
 <!-- mobile navigation -->
-<nav class="ui top sidebar vertical borderless menu {{ style }}" id="mobile-nav">
-    {% include 'snippets/about.html' %}
+<nav class="ui top sidebar vertical borderless menu {{ style }}" id="mobile-nav"
+     data-nav-target="mobileNav">
+    {% include 'snippets/about.html' with mobile=True %}
     <a class="item" href="{% slugurl 'editorial' %}">Editorial</a>
     <a class="item" href="{% slugurl 'collections'%}">Collections</a>
     <a class="item" href="{% url 'archive:list' %}">
@@ -13,11 +16,13 @@
 </nav>
 
 <!-- main navigation -->
-<nav class="ui top fixed borderless menu {{ style }}" id="main-nav">
-    <a class="toc item" id="toc">
+<nav class="ui top fixed borderless menu {{ style }}" id="main-nav"
+     data-nav-target="mainNav">
+    <a class="toc item" id="toc"
+       data-action="click->nav#toggleMobile">
         <img class="menu icon" src="{% static 'img/icons/Menu.svg' %}"
             alt="open menu">
-        <img class="close icon" src="{% static 'img/icons/Delete.svg' %}"
+        <img class="close icon hidden" src="{% static 'img/icons/Delete.svg' %}"
             alt="close menu">
     </a>
     {% include 'snippets/about.html' %}
@@ -46,3 +51,5 @@
         </a>
     </div>
 </nav>
+
+</div>
