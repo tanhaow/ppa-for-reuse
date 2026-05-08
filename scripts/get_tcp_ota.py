@@ -36,13 +36,9 @@ def ota_search_by_id(stc_id):
         # "filter_relational_operator": "equals",
         # "filter": "ECCO-TCP+%28Phase+1%29",
     }
-    resp = requests.get(
-        "https://ota.bodleian.ox.ac.uk/repository/xmlui/discover", params=params
-    )
+    resp = requests.get("https://ota.bodleian.ox.ac.uk/repository/xmlui/discover", params=params)
     soup = BeautifulSoup(resp.content, "html.parser")
-    item_urls = [
-        title.a["href"] for title in soup.find_all("div", class_="artifact-title")
-    ]
+    item_urls = [title.a["href"] for title in soup.find_all("div", class_="artifact-title")]
     return item_urls
 
 

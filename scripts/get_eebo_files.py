@@ -47,9 +47,7 @@ def group_ids(idlist: list) -> dict[str, list]:
     return grouped_ids
 
 
-def extract_from_zipfile(
-    zipfilename: str, extract_list: list, output_path: Path
-) -> int:
+def extract_from_zipfile(zipfilename: str, extract_list: list, output_path: Path) -> int:
     """Takes a path to zipfile, a list of files in that zip to extract,
     and an output path where files should be extracted. Writes
     files to a single directory without nesting.
@@ -178,18 +176,10 @@ def extract_marc_files(eebo_path: Path, base_ids: list, output_path: Path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Extract EEBO-TCP P4 XML files from zip files"
-    )
-    parser.add_argument(
-        "input", help="CSV file with EEBO IDs to select as column 'Volume ID'"
-    )
-    parser.add_argument(
-        "eebo_dir", help="Directory where EEBO-TCP content has been extracted"
-    )
-    parser.add_argument(
-        "output_dir", help="Directory where the selected files should be saved"
-    )
+    parser = argparse.ArgumentParser(description="Extract EEBO-TCP P4 XML files from zip files")
+    parser.add_argument("input", help="CSV file with EEBO IDs to select as column 'Volume ID'")
+    parser.add_argument("eebo_dir", help="Directory where EEBO-TCP content has been extracted")
+    parser.add_argument("output_dir", help="Directory where the selected files should be saved")
     args = parser.parse_args()
 
     # get a list of ids from the spreadsheet

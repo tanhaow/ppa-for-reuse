@@ -14,7 +14,8 @@ def get_version_label(htid):
     Extract the HathiTrust "version label" from a record's catalog page.
     Returns the corresponding timestamp, returns None if the HTTP request fails.
     """
-    # a script block in HT record page includes a number of HT.params including version timestamp
+    # A script block in an HT record page contains `HT.params` that include
+    # the version timestamp; extract it via regex.
     re_pattern = r'HT.params.versionLabel = "([^"]+)";'
     catalog_url = f"https://hdl.handle.net/2027/{htid}"
     try:
@@ -23,7 +24,7 @@ def get_version_label(htid):
         # Handle timeouts gracefully (catch and continue)
         print(f"Warning: request timed out for '{htid}'")
         return
-    if r.status_code == requests.codes['ok']:
+    if r.status_code == requests.codes["ok"]:
         # Extract version_label from response text
         version_label = re.findall(re_pattern, r.text)
         if version_label:
@@ -60,18 +61,17 @@ def get_version_labels(htids, wait_time=1):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in [1,2]:
+    if len(sys.argv) not in [1, 2]:
         print("Usage: ([htids list])")
         sys.exit(1)
 
     # Check if an input file has been provided
-    in_tsv = "ht-excerpts-2023-09-20.txt" # Default value
+    in_tsv = "ht-excerpts-2023-09-20.txt"  # Default value
     if len(sys.argv) == 2:
         in_tsv = sys.argv[1]
 
     # Determine output file
-    out_pfx = os.path.join("version-labels",
-                           f"version-labels-{datetime.date.today()}")
+    out_pfx = os.path.join("version-labels", f"version-labels-{datetime.date.today()}")
     out_tsv = f"{out_pfx}.tsv"
     i = 0
     while os.path.isfile(out_tsv):
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     version_pairs = get_version_labels(htids)
 
     # Write version labels to file
-    with open(out_tsv, mode='w') as writer:
-        writer.write(f"htid\tversion_label\n")
+    with open(out_tsv, mode="w") as writer:
+        writer.write("htid\tversion_label\n")
         for htid, version_label in version_pairs:
             writer.write(f"{htid}\t{version_label}\n")

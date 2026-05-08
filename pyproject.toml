@@ -1,7 +1,10 @@
 [tool.ruff]
-# allow longer line length
-line-length = 95
+line-length = 100
+# Avoid noisy line-length errors in generated migration files and long-test-strings
+per-file-ignores = { "ppa/*/migrations/*.py" = ["E501"], "ppa/**/tests/*.py" = ["E501"] }
 
-# don't be as strict with formatting in migrations
-extend-exclude = ["ppa/*/migrations/*.py"]
+[tool.black]
+line-length = 100
+
+ 
 
