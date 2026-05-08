@@ -236,20 +236,6 @@ def _resolve_instance_value(instance, path):
     return getattr(instance, path, None)
 
 
-# Maps ISO 639-1 language codes to the Solr dynamic field suffix in managed-schema.xml.
-# Chinese (zh) maps to the CJK bigram type since there is no dedicated text_zh type.
-_LANG_FIELD_SUFFIX = {
-    "ar": "ar", "bg": "bg", "ca": "ca", "cz": "cz",
-    "da": "da", "de": "de", "el": "el", "en": "en", "es": "es",
-    "et": "et", "eu": "eu", "fa": "fa", "fi": "fi", "fr": "fr",
-    "ga": "ga", "gl": "gl", "hi": "hi", "hu": "hu", "hy": "hy",
-    "id": "id", "it": "it", "ja": "ja", "ko": "ko", "lv": "lv",
-    "nl": "nl", "no": "no", "pt": "pt", "ro": "ro", "ru": "ru",
-    "sv": "sv", "th": "th", "tr": "tr",
-    "zh": "cjk",
-}
-
-
 def map_model_to_solr(instance, adapter=None):
     """
     Map a model instance to Solr document using adapter field mappings.
@@ -289,47 +275,5 @@ def map_model_to_solr(instance, adapter=None):
                 # Later adapters can override earlier ones
                 # (in case of field conflicts)
                 doc[solr_field] = val
-
-    # Language-specific field routing based on adapter supported_languages.
-    # Collect the union of supported languages across all applicable adapters.
-    supported = set()
-    for adp in adapters:
-        if getattr(adp, "supported_languages", None):
-            supported.update(adp.supported_languages)
-
-    if not supported:
-        return doc  # no language config — langid handles detection only
-
-    # Detect language from title + notes (long enough for reliable detection).
-    text_for_detection = " ".join(filter(None, [
-        _resolve_instance_value(instance, "title"),
-        _resolve_instance_value(instance, "notes"),
-    ]))
-
-    if not text_for_detection.strip():
-        return doc
-
-    try:
-        from langdetect import detect
-        lang = detect(text_for_detection)
-    except Exception:
-        return doc  # detection failed — langid fallback to "en" will apply
-
-    # If detected language is not in the adapter's supported list, fall back to English.
-    if lang not in supported:
-        lang = "en"
-
-    suffix = _LANG_FIELD_SUFFIX.get(lang)
-    if not suffix:
-        return doc
-
-    # Write language_s so langid (langid.overwrite=false) won't overwrite it.
-    doc["language_s"] = lang
-
-    # Write language-specific copies of the core text fields.
-    for field in ("title", "notes"):
-        val = _resolve_instance_value(instance, field)
-        if val:
-            doc[f"{field}_txt_{suffix}"] = val
 
     return doc

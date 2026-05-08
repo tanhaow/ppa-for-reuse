@@ -116,9 +116,7 @@ class TestAnalytics(TestCase):
             # setting should toggle analytics
             res = self.client.get(url)
             # should have the script tag to load gtag.js
-            self.assertContains(
-                res, "https://www.googletagmanager.com/gtag/js?id=UA-415"
-            )
+            self.assertContains(res, "https://www.googletagmanager.com/gtag/js?id=UA-415")
             # should have the call to gtags snippet
             self.assertContains(res, "gtag(")
             # should also have the UA in the config call

@@ -69,9 +69,7 @@ class TestHathiImportCommand(TestCase):
         cmd.hathi_pairtree = {}  # force pairtree dict to initialize
         # use the same id values for each prefix
         id_values = ["one", "two", "three"]
-        mock_pairtree_client.PairtreeStorageClient.return_value.list_ids.return_value = (
-            id_values
-        )
+        mock_pairtree_client.PairtreeStorageClient.return_value.list_ids.return_value = id_values
         hathi_ids = cmd.get_hathi_ids()
         # should return a generator so we don't load thousands at once
         assert isinstance(hathi_ids, types.GeneratorType)
@@ -88,9 +86,7 @@ class TestHathiImportCommand(TestCase):
         cmd = hathi_import.Command()
         # use the same id values for each prefix
         id_values = ["aa", "bb", "cc", "dd"]
-        mock_pairtree_client.PairtreeStorageClient.return_value.list_ids.return_value = (
-            id_values
-        )
+        mock_pairtree_client.PairtreeStorageClient.return_value.list_ids.return_value = id_values
         assert cmd.count_hathi_ids() == len(self.hathi_prefixes) * len(id_values)
 
     def test_import_digitizedwork(self):
@@ -110,9 +106,7 @@ class TestHathiImportCommand(TestCase):
 
         # create new record
         cmd.script_user = User.objects.get(username=settings.SCRIPT_USERNAME)
-        bibdata_full = os.path.join(
-            FIXTURES_PATH, "bibdata_full_njp.32101013082597.json"
-        )
+        bibdata_full = os.path.join(FIXTURES_PATH, "bibdata_full_njp.32101013082597.json")
         cmd.bib_api.record.side_effect = None
         with open(bibdata_full) as bibdata:
             hathirecord = hathi.HathiBibliographicRecord(json.load(bibdata))
@@ -156,11 +150,7 @@ class TestHathiImportCommand(TestCase):
         assert cmd.stats["skipped"] == 0
 
         # check newest log entry for this object
-        log_entry = (
-            LogEntry.objects.filter(object_id=digwork.id)
-            .order_by("-action_time")
-            .first()
-        )
+        log_entry = LogEntry.objects.filter(object_id=digwork.id).order_by("-action_time").first()
         assert log_entry.user == cmd.script_user
         assert log_entry.content_type == ContentType.objects.get_for_model(digwork)
         assert "Updated via hathi_import script" in log_entry.change_message
@@ -173,9 +163,7 @@ class TestHathiImportCommand(TestCase):
         digwork = DigitizedWork(source_id="test.123")
 
         # patch methods with actual logic to check handle method behavior
-        with patch.object(
-            hathi_import.Command, "get_hathi_ids"
-        ) as mock_get_htids, patch.object(
+        with patch.object(hathi_import.Command, "get_hathi_ids") as mock_get_htids, patch.object(
             hathi_import.Command, "initialize_pairtrees"
         ) as mock_init_ptree, patch.object(
             hathi_import.Command, "import_digitizedwork"
@@ -372,9 +360,7 @@ class TestIndexPagesCommand(TestCase):
     def test_index_pages(self, mock_process, mock_progbar, mock_sleep):
         # generate solrqueryset mock and patch it in
         mock_solrqs = self.mock_solr_queryset()
-        with patch(
-            "ppa.archive.management.commands.index_pages.SolrQuerySet", new=mock_solrqs
-        ):
+        with patch("ppa.archive.management.commands.index_pages.SolrQuerySet", new=mock_solrqs):
             mock_solrqs.return_value.get_facets.return_value.facet_fields = {
                 "item_type": {"pages": 153}
             }

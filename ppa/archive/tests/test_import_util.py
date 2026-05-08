@@ -126,9 +126,7 @@ class TestHathiImporter(TestCase):
     @patch("ppa.archive.models.DigitizedWork.page_count")
     @patch("ppa.archive.models.DigitizedWork.add_from_hathi")
     @override_settings(HATHI_DATA="/my/test/ppa/ht_data")
-    def test_add_items_success(
-        self, mock_page_count, mock_add_from_hathi, mock_glob, mock_isdir
-    ):
+    def test_add_items_success(self, mock_page_count, mock_add_from_hathi, mock_glob, mock_isdir):
         test_htid = "a.123"
         htimporter = HathiImporter([test_htid])
         # simulate rsync success
@@ -204,14 +202,8 @@ class TestHathiImporter(TestCase):
         # length of output results should match results
         assert len(output_results) == len(htimporter.results)
         # message should be set for each based on value or type of status
-        assert (
-            output_results[success_id]
-            == HathiImporter.status_message[HathiImporter.SUCCESS]
-        )
-        assert (
-            output_results[notfound_id]
-            == HathiImporter.status_message[hathi.HathiItemNotFound]
-        )
+        assert output_results[success_id] == HathiImporter.status_message[HathiImporter.SUCCESS]
+        assert output_results[notfound_id] == HathiImporter.status_message[hathi.HathiItemNotFound]
 
     def test_pairtree_paths(self):
         htimporter = HathiImporter(["hvd.1234", "nyp.334455"])
@@ -283,9 +275,7 @@ class TestGaleImporter(TestCase):
         importer = GaleImporter(["cw123", "cw456"])
         mockuser = Mock()
         log_message = "unit test"
-        with patch.object(
-            importer, "import_digitizedwork"
-        ) as mock_import_digitizedwork:
+        with patch.object(importer, "import_digitizedwork") as mock_import_digitizedwork:
             importer.add_items(log_msg_src=log_message, user=mockuser)
             # gale api should be initialized
             mock_gale_api.assert_called_once_with()
@@ -295,9 +285,7 @@ class TestGaleImporter(TestCase):
 
         # not called with a user, should use script user
         importer = GaleImporter(["cw123"])
-        with patch.object(
-            importer, "import_digitizedwork"
-        ) as mock_import_digitizedwork:
+        with patch.object(importer, "import_digitizedwork") as mock_import_digitizedwork:
             importer.add_items(log_msg_src=log_message)
             mock_import_digitizedwork.assert_any_call("cw123", log_message, None)
 
@@ -362,10 +350,7 @@ class TestGaleImporter(TestCase):
             assert digwork
             assert digwork.record_id == estc_id
             assert digwork.title == "The life of Alexander Pope"
-            assert (
-                digwork.source_url
-                == "https://link.gale.co/test/ECCO?sid=gale_api&u=utopia9871"
-            )
+            assert digwork.source_url == "https://link.gale.co/test/ECCO?sid=gale_api&u=utopia9871"
             assert digwork.enumcron == "2"
             assert digwork.source == DigitizedWork.GALE
             assert importer.imported_works[-1] == digwork

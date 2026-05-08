@@ -304,8 +304,7 @@ class ProtectedWorkField(models.Field):
     :class:`ProtectedWorkFieldFlags` object and stores as integer."""
 
     description = (
-        "A field that stores an instance of :class:`ProtectedWorkFieldFlags` "
-        "as an integer."
+        "A field that stores an instance of :class:`ProtectedWorkFieldFlags` " "as an integer."
     )
 
     def __init__(self, verbose_name=None, name=None, **kwargs):
@@ -345,9 +344,7 @@ class SignalHandlers:
             # if the collection has any works associated
             works = instance.digitizedwork_set.all()
             if works.exists():
-                logger.debug(
-                    f"collection save, reindexing {works.count()} related works"
-                )
+                logger.debug(f"collection save, reindexing {works.count()} related works")
                 DigitizedWork.index_items(works)
 
     @staticmethod
@@ -376,9 +373,7 @@ class SignalHandlers:
             works = instance.digitizedwork_set.all()
             if works.exists():
                 # get a total of page count for affected works
-                page_count = works.aggregate(
-                    page_count=models.Sum("page_count", default=0)
-                )
+                page_count = works.aggregate(page_count=models.Sum("page_count", default=0))
                 logger.debug(
                     "cluster id has changed, reindexing %d works and %d pages",
                     works.count(),
@@ -491,9 +486,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
     #: title of the work; using TextField to allow for long titles
     title = models.TextField(help_text="Main title")
     #: subtitle of the work; using TextField to allow for long titles
-    subtitle = models.TextField(
-        blank=True, default="", help_text="Subtitle, if any (optional)"
-    )
+    subtitle = models.TextField(blank=True, default="", help_text="Subtitle, if any (optional)")
     #: sort title: title without leading non-sort characters, from marc
     sort_title = models.TextField(
         default="",
@@ -553,9 +546,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
     collections = models.ManyToManyField(Collection, blank=True)
 
     #: optional cluster for aggregating works
-    cluster = models.ForeignKey(
-        Cluster, blank=True, null=True, on_delete=models.SET_NULL
-    )
+    cluster = models.ForeignKey(Cluster, blank=True, null=True, on_delete=models.SET_NULL)
 
     #: date added to the archive
     added = models.DateTimeField(auto_now_add=True)
@@ -696,9 +687,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
     is_public.admin_order_field = "status"
 
     #: regular expresion for cleaning preliminary text from publisher names
-    printed_by_re = (
-        r"^(Printed)?( and )?(Pub(.|lished|lisht)?)?( and sold)? (by|for|at)( the)? ?"
-    )
+    printed_by_re = r"^(Printed)?( and )?(Pub(.|lished|lisht)?)?( and sold)? (by|for|at)( the)? ?"
     # Printed by/for (the); Printed and sold by; Printed and published by;
     # Pub./Published/Publisht at/by/for the
     pubyear_re = re.compile(r"(?P<year>\d{4})")
@@ -762,9 +751,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
 
         # if excerpt page range has changed
         # OR this is a new record with a page range
-        if self.has_changed("pages_digital") or (
-            self.pk is None and self.pages_digital
-        ):
+        if self.has_changed("pages_digital") or (self.pk is None and self.pages_digital):
             # update the page count if possible (i.e., not a Gale record)
             self.page_count = self.count_pages()
             # if page range changed on existing record, clear out old index
@@ -898,9 +885,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
         field_data["sort_title"] = marc_record.title()[non_sort:].strip(' "[')
         field_data["author"] = marc_record.author() or ""
         # remove a note present on some records and strip whitespace
-        field_data["author"] = (
-            field_data["author"].replace("[from old catalog]", "").strip()
-        )
+        field_data["author"] = field_data["author"].replace("[from old catalog]", "").strip()
         # removing trailing period, except when it is part of an
         # initial or known abbreviation (i.e, Esq.)
         # Look for single initial, but support initials with no spaces
@@ -948,9 +933,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
         # *only* if they wrap the whole text
         for field in ["publisher", "pub_place"]:
             if field in field_data:
-                field_data[field] = re.sub(
-                    r"^\[(.*)\]$", r"\1", field_data[field]
-                ).strip()
+                field_data[field] = re.sub(r"^\[(.*)\]$", r"\1", field_data[field]).strip()
 
         if populate:
             # conditionally update fields that are protected (or not)
@@ -1007,9 +990,7 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
             "post_save": SignalHandlers.cluster_save,
             "pre_delete": SignalHandlers.cluster_delete,
         },
-        "archive.DigitizedWork": {
-            "post_save": SignalHandlers.handle_digwork_cluster_change
-        },
+        "archive.DigitizedWork": {"post_save": SignalHandlers.handle_digwork_cluster_change},
     }
 
     @property
@@ -1200,15 +1181,9 @@ class DigitizedWork(ModelIndexable, TrackChangesModel):
             # some aggregate packages retrieved from Data API
             # include jp2 and xml files as well as txt; only count text
             page_count = len(
-                [
-                    filename
-                    for filename in ht_zip.namelist()
-                    if filename.endswith(".txt")
-                ]
+                [filename for filename in ht_zip.namelist() if filename.endswith(".txt")]
             )
-            logger.debug(
-                "Counted %d pages in zipfile in %f sec", page_count, time.time() - start
-            )
+            logger.debug("Counted %d pages in zipfile in %f sec", page_count, time.time() - start)
         # NOTE: could also count pages via mets file, but that's slower
         # than counting via zipfile name list
 

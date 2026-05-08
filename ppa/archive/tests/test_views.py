@@ -9,7 +9,7 @@ from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.http import urlencode
-from parasolr.django import SolrClient, SolrQuerySet
+from ppa.solr_factory import SolrClient, SolrQuerySet
 
 from ppa.archive.forms import ImportForm, ModelMultipleChoiceFieldWithEmpty, SearchForm
 from ppa.archive.models import (
@@ -62,9 +62,7 @@ class TestDigitizedWorkDetailView(TestCase):
     def setUp(self):
         # get a work and its detail page to test with
         self.dial = DigitizedWork.objects.get(source_id="chi.78013704")
-        self.dial_url = reverse(
-            "archive:detail", kwargs={"source_id": self.dial.source_id}
-        )
+        self.dial_url = reverse("archive:detail", kwargs={"source_id": self.dial.source_id})
         self.dial.index()
         TestDigitizedWorkDetailView.index_page_content()
 
@@ -94,9 +92,7 @@ class TestDigitizedWorkDetailView(TestCase):
             self.dial.source_id,
             msg_prefix="Missing HathiTrust ID (source_id)",
         )
-        self.assertContains(
-            response, self.dial.source_url, msg_prefix="Missing source_url"
-        )
+        self.assertContains(response, self.dial.source_url, msg_prefix="Missing source_url")
         # self.assertContains(  # disabled for now since it's not in design spec
         #     response, dial.enumcron,
         #     msg_prefix='Missing volume/chronology (enumcron)'
@@ -107,9 +103,7 @@ class TestDigitizedWorkDetailView(TestCase):
             self.dial.pub_place,
             msg_prefix="Missing place of publication (pub_place)",
         )
-        self.assertContains(
-            response, self.dial.publisher, msg_prefix="Missing publisher"
-        )
+        self.assertContains(response, self.dial.publisher, msg_prefix="Missing publisher")
         self.assertContains(
             response,
             self.dial.pub_date,
@@ -167,9 +161,7 @@ class TestDigitizedWorkDetailView(TestCase):
         self.assertContains(response, """<th scope="row">Book Title</th>""", html=True)
         self.assertContains(response, excerpt.title)
         self.assertContains(response, excerpt.book_journal)
-        self.assertContains(
-            response, hathi_page_url(excerpt.source_id, excerpt.first_page)
-        )
+        self.assertContains(response, hathi_page_url(excerpt.source_id, excerpt.first_page))
 
     @patch("ppa.archive.models.DigitizedWork.index_items")
     def test_anonymous_display_excerpt_gale(self, mock_index_items):
@@ -207,9 +199,7 @@ class TestDigitizedWorkDetailView(TestCase):
         )
 
         response = self.client.get(article.get_absolute_url())
-        self.assertContains(
-            response, """<th scope="row">Journal Title</th>""", html=True
-        )
+        self.assertContains(response, """<th scope="row">Journal Title</th>""", html=True)
         self.assertContains(response, article.title)
         self.assertContains(response, article.book_journal)
 
@@ -455,9 +445,7 @@ class TestDigitizedWorkDetailView(TestCase):
         )
         response = self.client.get(excerpt.get_absolute_url())
         # retrieve url for source id with no start apge
-        nonexistent_source_url = reverse(
-            "archive:detail", kwargs={"source_id": excerpt.source_id}
-        )
+        nonexistent_source_url = reverse("archive:detail", kwargs={"source_id": excerpt.source_id})
         # should return permanent redirect to the single excerpt
         response = self.client.get(nonexistent_source_url)
         assert response.status_code == 301
@@ -534,9 +522,7 @@ class TestDigitizedWorkListRequest(TestCase):
         # NOTE: without a sleep, even with commit=True and/or low
         # commitWithin settings, indexed data isn't reliably available
         index_checks = 0
-        while (
-            SolrQuerySet().search(item_type="work").count() == 0 and index_checks <= 10
-        ):
+        while SolrQuerySet().search(item_type="work").count() == 0 and index_checks <= 10:
             # sleep until we get records back; 0.1 seems to be enough
             # for local dev with local Solr
             sleep(0.1)
@@ -599,9 +585,7 @@ class TestDigitizedWorkListRequest(TestCase):
 
         # two works in the same cluster
         # both have the same title, should only be listed once
-        clustered_works = DigitizedWork.objects.filter(
-            cluster__cluster_id="dialcluster"
-        )
+        clustered_works = DigitizedWork.objects.filter(cluster__cluster_id="dialcluster")
         self.assertContains(response, clustered_works[0].title, count=1)
         # (link to search within cluster tested elsewhere)
 
@@ -626,13 +610,9 @@ class TestDigitizedWorkListRequest(TestCase):
         response = self.client.get(self.url, {"query": "wintry", "sort": "relevance"})
 
         # relevance sort for keyword search
-        assert (
-            len(response.context["object_list"]) == 2
-        )  # 2 hits: 1 in a cluster, 1 not
+        assert len(response.context["object_list"]) == 2  # 2 hits: 1 in a cluster, 1 not
         self.assertContains(response, "2 digitized works")
-        self.assertContains(
-            response, self.wintry.source_id
-        )  # has hits for wintry search
+        self.assertContains(response, self.wintry.source_id)  # has hits for wintry search
         self.assertNotContains(response, self.dial.source_id)  # no hits for wintry
         # page image & text highlight displayed for matching page
         self.assertContains(
@@ -651,7 +631,9 @@ class TestDigitizedWorkListRequest(TestCase):
         # cluster link should not preserve ANY search parameters
         self.assertContains(
             response,
-            "<a href='/archive/?cluster=treatisewinter'>search and browse within cluster</a>",  # noqa: E501
+            (
+                "<a href='/archive/?cluster=treatisewinter'>" "search and browse within cluster</a>"
+            ),  # noqa: E501
             html=True,
         )
         self.assertNotContains(
@@ -783,9 +765,7 @@ class TestDigitizedWorkListRequest(TestCase):
     def test_search_within_cluster(self):
         response = self.client.get(self.url, {"cluster": "treatisewinter"})
         # cluster search should indicate constraint
-        self.assertContains(
-            response, "You are searching and browsing within a cluster."
-        )
+        self.assertContains(response, "You are searching and browsing within a cluster.")
         # this cluster only has one record
         self.assertContains(response, "Displaying 1 digitized work")
         # search within cluster should not report containing clusters of works
@@ -801,9 +781,7 @@ class TestDigitizedWorkListRequest(TestCase):
             cluster__cluster_id="treatisewinter"
         ).values_list("source_id", flat=True)
         # convert to list because queryset != list
-        assert list(digwork_ids) == [
-            work["source_id"] for work in response.context["object_list"]
-        ]
+        assert list(digwork_ids) == [work["source_id"] for work in response.context["object_list"]]
 
     def test_search_sort(self):
         # add a sort term - pub date
@@ -820,9 +798,7 @@ class TestDigitizedWorkListRequest(TestCase):
             if (dw.cluster is None or dw.cluster not in clusters[:i])
         ]
         # the list of sorted ids should match
-        assert sorted_works_ids == [
-            work["source_id"] for work in response.context["object_list"]
-        ]
+        assert sorted_works_ids == [work["source_id"] for work in response.context["object_list"]]
 
         # test sort date in reverse
         response = self.client.get(self.url, {"sort": "pub_date_desc"})
@@ -835,9 +811,7 @@ class TestDigitizedWorkListRequest(TestCase):
             for i, dw in enumerate(digworks.reverse())
             if (dw.cluster is None or dw.cluster not in clusters[:i])
         ]
-        assert sorted_works_ids == [
-            work["source_id"] for work in response.context["object_list"]
-        ]
+        assert sorted_works_ids == [work["source_id"] for work in response.context["object_list"]]
 
     def test_relevance_sort_enabled(self):
         # - check that a query allows relevance as sort order toggle in form
@@ -1016,9 +990,7 @@ class TestAddToCollection(TestCase):
     def setUp(self):
         self.test_pass = "secret"
         self.testuser = "test"
-        self.user = get_user_model().objects.create_user(
-            username="test", password=self.test_pass
-        )
+        self.user = get_user_model().objects.create_user(username="test", password=self.test_pass)
         self.user.save()
         self.test_credentials = {"username": self.testuser, "password": self.test_pass}
 
@@ -1050,12 +1022,8 @@ class TestAddToCollection(TestCase):
         # the admin interface and not enable the form for submission
         bulk_add = reverse("archive:add-to-collection")
         response = self.client.get(bulk_add)
-        self.assertContains(
-            response, "<h1>Add Digitized Works to Collections</h1>", html=True
-        )
-        self.assertContains(
-            response, "Please select digitized works from the admin interface."
-        )
+        self.assertContains(response, "<h1>Add Digitized Works to Collections</h1>", html=True)
+        self.assertContains(response, "Please select digitized works from the admin interface.")
         # sending a set of pks that don't exist should produce the same result
         session = self.client.session
         session["collection-add-ids"] = [100, 101]
@@ -1063,9 +1031,7 @@ class TestAddToCollection(TestCase):
         response = self.client.get(bulk_add)
         # check that the session var has been set to an empy list
         assert self.client.session.get("collection-add-ids") == []
-        self.assertContains(
-            response, "Please select digitized works from the admin interface."
-        )
+        self.assertContains(response, "Please select digitized works from the admin interface.")
         # create a collection and send valid pks
         coll1 = Collection.objects.create(name="Random Grabbag")
         session["collection-add-ids"] = [1, 2]
@@ -1105,9 +1071,7 @@ class TestAddToCollection(TestCase):
         # digitized works with pks 1,2 are added to the collection
         digworks = DigitizedWork.objects.filter(collections__pk=coll1.pk).order_by("id")
         assert digworks.count() == 2
-        assert (
-            list(digworks.values_list("id", flat=True)) == session["collection-add-ids"]
-        )
+        assert list(digworks.values_list("id", flat=True)) == session["collection-add-ids"]
         # the session variable is cleared
         assert "collection-add-ids" not in self.client.session
         # - check that index method was called
@@ -1133,9 +1097,7 @@ class TestAddToCollection(TestCase):
             reverse("admin:archive_digitizedwork_changelist"),
             urlencode(session["collection-add-filters"].items()),
         )
-        digworks2 = DigitizedWork.objects.filter(collections__pk=coll1.pk).order_by(
-            "id"
-        )
+        digworks2 = DigitizedWork.objects.filter(collections__pk=coll1.pk).order_by("id")
         # this will fail if the bulk add removed the previously set two works
         assert digworks2.count() == 2
         # they should also be the same objects as before, i.e. this post request
@@ -1223,9 +1185,7 @@ class TestDigitizedWorkListView(TestCase):
             mock_qs.filter.assert_any_call(item_type="page")
             mock_qs.search.assert_any_call(content="(iambic)")
             mock_qs.group.assert_called_with("group_id", limit=2, sort="score desc")
-            mock_qs.highlight.assert_called_with(
-                "content", snippets=3, method="unified"
-            )
+            mock_qs.highlight.assert_called_with("content", snippets=3, method="unified")
             mock_qs.get_response.assert_called_with(rows=100)
             assert highlights == mock_qs.get_highlighting()
 
@@ -1264,9 +1224,7 @@ class TestDigitizedWorkListView(TestCase):
             # needed for the paginator
             # mockpsq.return_value.count.return_value = 0
 
-            digworkview.request = self.factory.get(
-                reverse("archive:list"), {"author": "Robert"}
-            )
+            digworkview.request = self.factory.get(reverse("archive:list"), {"author": "Robert"})
             digworkview.get_queryset()
             # queryset initialized
             mock_queryset_cls.assert_called_with()
@@ -1363,9 +1321,7 @@ class TestImportView(TestCase):
 
         mock_hathi_importer.assert_called_with(add_form.get_source_ids())
         mock_htimporter.filter_existing_ids.assert_called_with()
-        mock_htimporter.add_items.assert_called_with(
-            log_msg_src="via django admin", user=self.user
-        )
+        mock_htimporter.add_items.assert_called_with(log_msg_src="via django admin", user=self.user)
         mock_htimporter.index.assert_called_with()
 
         # can't inspect response context because not called with test client

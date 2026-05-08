@@ -31,8 +31,8 @@ django-split-settings
 # needed for the 'generate_textcorpus' manage command
 orjsonl
 django-waffle>=1.0
-langdetect
 
 # Project-specific dependencies
 # corppa is not published on pypi; install a tagged version to enable NLP/corpus utilities
 git+https://github.com/Princeton-CDH/ppa-nlp@0.4#egg=corppa  # optional: install to enable corppa-based corpus utilities
+

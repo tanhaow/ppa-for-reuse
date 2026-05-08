@@ -93,9 +93,7 @@ class TestSignalHandlers:
     @patch("ppa.archive.models.Page")
     def test_cluster_save(self, mockPage, mock_index_items):
         cluster1 = Cluster.objects.create(cluster_id="flotsam")
-        digwork = DigitizedWork.objects.create(
-            source_id="njp.32101013082597", cluster=cluster1
-        )
+        digwork = DigitizedWork.objects.create(source_id="njp.32101013082597", cluster=cluster1)
 
         SignalHandlers.cluster_save(Mock(), cluster1)
         # index not called because cluster id has not changed
@@ -111,9 +109,7 @@ class TestSignalHandlers:
     @patch("ppa.archive.models.Page")
     def test_cluster_delete(self, mockPage, mock_index_items):
         cluster1 = Cluster.objects.create(cluster_id="flotsam")
-        digwork = DigitizedWork.objects.create(
-            source_id="njp.32101013082597", cluster=cluster1
-        )
+        digwork = DigitizedWork.objects.create(source_id="njp.32101013082597", cluster=cluster1)
 
         SignalHandlers.cluster_delete(Mock(), cluster1)
         # should clear related works
@@ -179,9 +175,7 @@ class TestDigitizedWork(TestCase):
     fixtures = ["sample_digitized_works"]
 
     bibdata_full = os.path.join(FIXTURES_PATH, "bibdata_full_njp.32101013082597.json")
-    bibdata_full2 = os.path.join(
-        FIXTURES_PATH, "bibdata_full_aeu.ark_13960_t1pg22p71.json"
-    )
+    bibdata_full2 = os.path.join(FIXTURES_PATH, "bibdata_full_aeu.ark_13960_t1pg22p71.json")
     bibdata_brief = os.path.join(FIXTURES_PATH, "bibdata_brief_njp.32101013082597.json")
     metsfile = os.path.join(FIXTURES_PATH, "79279237.mets.xml")
 
@@ -210,9 +204,7 @@ class TestDigitizedWork(TestCase):
         assert digwork.has_fulltext
 
     def test_hathi(self):
-        digwork = DigitizedWork(
-            source_id="njp.32101013082597", source=DigitizedWork.HATHI
-        )
+        digwork = DigitizedWork(source_id="njp.32101013082597", source=DigitizedWork.HATHI)
         assert isinstance(digwork.hathi, hathi.HathiObject)
         assert digwork.hathi.hathi_id == digwork.source_id
 
@@ -325,9 +317,7 @@ class TestDigitizedWork(TestCase):
             full_bibdata = hathi.HathiBibliographicRecord(json.load(bibdata))
             full_bibdata.marcxml["245"].indicators[1] = " "
             digwork.populate_from_bibdata(full_bibdata)
-            assert digwork.sort_title == " ".join(
-                [digwork.title, full_bibdata.marcxml["245"]["b"]]
-            )
+            assert digwork.sort_title == " ".join([digwork.title, full_bibdata.marcxml["245"]["b"]])
 
             # test error in title sort (doesn't include space after definite article)
             full_bibdata.marcxml["245"].indicators[1] = 3
@@ -593,9 +583,7 @@ class TestDigitizedWork(TestCase):
         page_count = digwork.count_pages(mock_pairtree_client)
 
         # inspect pairtree logic
-        mock_pairtree_client.get_object.assert_any_call(
-            pt_id, create_if_doesnt_exist=False
-        )
+        mock_pairtree_client.get_object.assert_any_call(pt_id, create_if_doesnt_exist=False)
         # list parts called on encoded version of pairtree id
         content_dir = pairtree_path.id_encode(pt_id)
         pt_obj.list_parts.assert_any_call(content_dir)
@@ -619,9 +607,7 @@ class TestDigitizedWork(TestCase):
         assert digwork.count_pages(mock_pairtree_client) == 2
 
         # object not found in pairtree data
-        mock_pairtree_client.get_object.side_effect = (
-            storage_exceptions.ObjectNotFoundException
-        )
+        mock_pairtree_client.get_object.side_effect = storage_exceptions.ObjectNotFoundException
         # should not error; should report not found
         with pytest.raises(storage_exceptions.ObjectNotFoundException):
             digwork.count_pages(mock_pairtree_client)
@@ -660,14 +646,10 @@ class TestDigitizedWork(TestCase):
         assert work.index_id() == work.source_id
 
         # for excerpts, index id includes first page from original page range
-        excerpt = DigitizedWork(
-            source_id="chi.89279238", pages_orig="3-5", pages_digital="5-7"
-        )
+        excerpt = DigitizedWork(source_id="chi.89279238", pages_orig="3-5", pages_digital="5-7")
         assert excerpt.index_id() == f"{excerpt.source_id}-p3"
 
-        excerpt = DigitizedWork(
-            source_id="abc.123459238", pages_orig="ii-iv", pages_digital="3-4"
-        )
+        excerpt = DigitizedWork(source_id="abc.123459238", pages_orig="ii-iv", pages_digital="3-4")
         assert excerpt.index_id() == f"{excerpt.source_id}-pii"
 
     def test_save_suppress(self):
@@ -724,9 +706,7 @@ class TestDigitizedWork(TestCase):
 
     def test_save_sourceid(self):
         # if source_id changes, old id should be removed from solr index
-        work = DigitizedWork.objects.create(
-            source=DigitizedWork.OTHER, source_id="12345"
-        )
+        work = DigitizedWork.objects.create(source=DigitizedWork.OTHER, source_id="12345")
         with patch.object(work, "remove_from_index") as mock_rm_from_index:
             work.source_id = "abcdef"
             work.save()
@@ -734,9 +714,7 @@ class TestDigitizedWork(TestCase):
 
     def test_save_sourceid_pagerange(self):
         # if page range changes, old id should be removed from solr index
-        work = DigitizedWork.objects.create(
-            source=DigitizedWork.OTHER, source_id="12345"
-        )
+        work = DigitizedWork.objects.create(source=DigitizedWork.OTHER, source_id="12345")
         work.index_id()
         with patch.object(work, "remove_from_index") as mock_rm_from_index:
             work.pages_digital = "12-300"
@@ -796,17 +774,13 @@ class TestDigitizedWork(TestCase):
 
         # first original page matches even though range is distinct; unsaved
         work2 = DigitizedWork(source_id="chi.79279237", pages_orig="233-240")
-        with pytest.raises(
-            ValidationError, match="First page 233 is not unique for this source"
-        ):
+        with pytest.raises(ValidationError, match="First page 233 is not unique for this source"):
             work2.clean()
 
         # test updating existing record; same error
         work2 = DigitizedWork.objects.create(source_id="chi.79279237", pages_orig="232")
         work2.pages_orig = "233-235"
-        with pytest.raises(
-            ValidationError, match="First page 233 is not unique for this source"
-        ):
+        with pytest.raises(ValidationError, match="First page 233 is not unique for this source"):
             work2.clean()
 
     def test_clean_fields(self):
@@ -887,9 +861,7 @@ class TestDigitizedWork(TestCase):
         assert log_entries.count() == 1
         log_entry = log_entries.first()
         assert log_entry.user == script_user
-        assert log_entry.content_type == ContentType.objects.get_for_model(
-            DigitizedWork
-        )
+        assert log_entry.content_type == ContentType.objects.get_for_model(DigitizedWork)
         # default log message for new record
         assert log_entry.change_message == "Created from HathiTrust bibliographic data"
         assert log_entry.action_flag == ADDITION
@@ -910,9 +882,7 @@ class TestDigitizedWork(TestCase):
         digwork_updated = digwork.updated  # store local record updated time
         mockhathirecord = mock_hathibib.record.return_value
         # set hathi record last updated before digwork last update
-        mockhathirecord.copy_last_updated.return_value = date.today() - timedelta(
-            days=1
-        )
+        mockhathirecord.copy_last_updated.return_value = date.today() - timedelta(days=1)
         digwork = DigitizedWork.add_from_hathi(test_htid)
         # bib api should still be called
         mock_hathibib.record.assert_called_with("htid", test_htid)
@@ -930,11 +900,7 @@ class TestDigitizedWork(TestCase):
         # new log entry should be added
         assert LogEntry.objects.filter(object_id=digwork.id).count() == 2
         # log entry should exist for record update; get newest
-        log_entry = (
-            LogEntry.objects.filter(object_id=digwork.id)
-            .order_by("-action_time")
-            .first()
-        )
+        log_entry = LogEntry.objects.filter(object_id=digwork.id).order_by("-action_time").first()
         assert log_entry.action_flag == CHANGE
         assert log_entry.change_message.startswith("Updated")
         assert "(forced update)" in log_entry.change_message
@@ -942,9 +908,7 @@ class TestDigitizedWork(TestCase):
         # update existing record - changed on hathi, should auto update
         # set hathi record last updated *after* digwork last update
         mock_pop_from_bibdata.reset_mock()
-        mockhathirecord.copy_last_updated.return_value = date.today() + timedelta(
-            days=1
-        )
+        mockhathirecord.copy_last_updated.return_value = date.today() + timedelta(days=1)
         digwork_updated = digwork.updated  # store local record updated time
         digwork = DigitizedWork.add_from_hathi(test_htid)
         # record update time should be changed
@@ -965,9 +929,7 @@ class TestDigitizedWork(TestCase):
         work = DigitizedWork(source_id="chi.79279237")
         with patch.object(work, "solr") as mocksolr:
             work.remove_from_index()
-            mocksolr.update.delete_by_query.assert_called_with(
-                'group_id_s:("chi.79279237")'
-            )
+            mocksolr.update.delete_by_query.assert_called_with('group_id_s:("chi.79279237")')
 
     def test_remove_from_index_excerpt(self):
         work = DigitizedWork(source_id="chi.79279237", pages_digital="10-30")
@@ -1043,9 +1005,7 @@ class TestPage(TestCase):
 
     def test_total_to_index_by_source(self):
         # fixture is all hathi; add one record from another source
-        DigitizedWork.objects.create(
-            source=DigitizedWork.GALE, source_id="CW123456", page_count=12
-        )
+        DigitizedWork.objects.create(source=DigitizedWork.GALE, source_id="CW123456", page_count=12)
         for source in [DigitizedWork.HATHI, DigitizedWork.GALE, DigitizedWork.EEBO]:
             page_counts = DigitizedWork.objects.filter(source=source).values_list(
                 "page_count", flat=True
@@ -1129,10 +1089,7 @@ class TestPage(TestCase):
             assert len(page_data) == 2
             # should use index id instead of source id as basis for solr id
             # first page data (0) is index 1 in mets because excerpt starts at page 2
-            assert (
-                page_data[0]["id"]
-                == f"{excerpt.index_id()}.{mock_page_data[1]['page_id']}"
-            )
+            assert page_data[0]["id"] == f"{excerpt.index_id()}.{mock_page_data[1]['page_id']}"
 
     @override_settings(EEBO_DATA=FIXTURES_PATH)
     def test_page_index_data_eebotcp(self):

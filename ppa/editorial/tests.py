@@ -11,7 +11,12 @@ from wagtail.test.utils import WagtailPageTestCase
 from wagtail.test.utils.form_data import nested_form_data, rich_text, streamfield
 from unittest.mock import patch
 
-from ppa.editorial.models import DocraptorSettings, EditorialIndexPage, EditorialPage, GeneratePdfPanel
+from ppa.editorial.models import (
+    DocraptorSettings,
+    EditorialIndexPage,
+    EditorialPage,
+    GeneratePdfPanel,
+)
 from ppa.editorial.wagtail_hooks import editor_js
 from ppa.pages.models import HomePage, Person
 
@@ -126,9 +131,7 @@ class TestEditorialIndexPage(WagtailPageTestCase):
         assert response.status_code == 200
 
         # single-digit month should 404
-        response = self.client.get(
-            editorial_page.relative_url(site).replace("/01/", "/1/")
-        )
+        response = self.client.get(editorial_page.relative_url(site).replace("/01/", "/1/"))
         assert response.status_code == 404
 
     def test_template_rendering(self):
@@ -168,6 +171,7 @@ class TestEditorialIndexPage(WagtailPageTestCase):
             "%s" % editorial_with_authors.first_published_at.strftime("%Y-%m-%d"),
             count=1,
         )
+
 
 @pytest.mark.django_db
 class TestGeneratePdfPanel:
@@ -218,6 +222,7 @@ class TestDocraptorSettings(TestCase):
         pdf_panel = render_to_string("wagtailadmin/panels/pdf_panel.html")
         self.assertIn("Generate a PDF", pdf_panel)
         self.assertNotIn("A DocRaptor API key must be configured", pdf_panel)
+
 
 class TestEditorialPage(WagtailPageTestCase):
     fixtures = ["wagtail_pages"]
@@ -290,9 +295,7 @@ class TestEditorialPage(WagtailPageTestCase):
 
     def test_template_rendering(self):
         # For EditorialIndexPage's equivalent, see test_routing
-        editorial_page = EditorialPage.objects.get(
-            title__icontains="Test Page with Authors"
-        )
+        editorial_page = EditorialPage.objects.get(title__icontains="Test Page with Authors")
         site = Site.objects.first()
         editorial_url = editorial_page.relative_url(site)
         response = self.client.get(editorial_url)
@@ -342,8 +345,7 @@ class TestEditorialPage(WagtailPageTestCase):
         request = RequestFactory().get(editorial_url)
         self.assertContains(
             response,
-            '<meta name="citation_public_url" content="%s" />'
-            % request.build_absolute_uri(),
+            '<meta name="citation_public_url" content="%s" />' % request.build_absolute_uri(),
             html=True,
         )
         # doi and editor not present when not set
@@ -397,6 +399,7 @@ class TestPerson(TestCase):
     def test_str(self):
         p = Person(name="A person")
         assert str(p) == "A person"
+
 
 class TestWagtailHooks:
     @patch("ppa.editorial.wagtail_hooks.render_bundle")
